@@ -3,7 +3,10 @@ from setuptools import setup, find_packages
 setup(
     name='llm_dataset',
     version='0.1',
-    packages=find_packages(include=['preprocess', 'preprocess.*', 'megatron', 'megatron.*']),
+    packages=find_packages(include=[
+        'preprocess', 'preprocess.*',
+        'llm_dataset', 'llm_dataset.*',
+    ]),
     package_dir={'': '.'},
     entry_points={
         'console_scripts': [
