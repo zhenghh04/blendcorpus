@@ -11,6 +11,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
 import time
 import gzip
 import glob
+import io
+import zstandard
 import torch
 import numpy as np
 import multiprocessing
@@ -140,6 +142,12 @@ class Partition(object):
         print("Opening", input_file_name)
         if input_file_name.endswith(".gz"):
             fin = gzip.open(input_file_name, "rt")
+        elif input_file_name.endswith(".zst"):
+            # Decompress Zstandard-compressed JSONL
+            fh = open(input_file_name, "rb")
+            dctx = zstandard.ZstdDecompressor()
+            stream = dctx.stream_reader(fh)
+            fin = io.TextIOWrapper(stream, encoding='utf-8')
         else:
             fin = open(input_file_name, 'r', encoding='utf-8')
 

@@ -40,8 +40,21 @@ if [[ -z "${RANK:-}" || -z "${WORLD_SIZE:-}" ]]; then
   exit 2
 fi
 
-# Gather all .gz files
-mapfile -t files < <(find "$INPUT_DIR" -type f -name '*.gz')
+# Gather all .gz and .zst files
+mapfile -t files < <(find "$INPUT_DIR" -type f \( -name '*.gz' -o -name '*.zst' \))
+# Filter out files already tokenized
+filtered=()
+for infile in "${files[@]}"; do
+  filename=$(basename "$infile")
+  stem=${filename%.gz}
+  stem=${stem%.zst}
+  relpath="${infile#"$INPUT_DIR"/}"
+  outidx="$OUTPUT_DIR/$(dirname "$relpath")/$stem.idx"
+  if [[ ! -f "$outidx" ]]; then
+    filtered+=("$infile")
+  fi
+done
+files=("${filtered[@]}")
 total=${#files[@]}
 
 # Process files assigned to this rank
@@ -50,7 +63,10 @@ for (( i=RANK; i<total; i+=WORLD_SIZE )); do
   relpath="${infile#"$INPUT_DIR"/}"
   outdir="$OUTPUT_DIR/$(dirname "$relpath")"
   mkdir -p "$outdir"
-  outprefix="$outdir/$(basename "${infile%.gz}")"
+  filename=$(basename "$infile")
+  stem=${filename%.gz}
+  stem=${stem%.zst}
+  outprefix="$outdir/$stem"
   preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
     --output-prefix "$outprefix" --workers "$NUM_WORKERS"
 done
