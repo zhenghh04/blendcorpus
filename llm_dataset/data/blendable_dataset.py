@@ -12,11 +12,9 @@ import torch
 
 from deepspeed.accelerator import get_accelerator
 # from megatron import print_rank_0
-from megatron.core import mpu
-from megatron.utils import Profile, PerfTrace
+from llm_dataset import parallel_state as mpu
+from llm_dataset.utils import Profile, PerfTrace, get_logger
 from mpi4py import MPI
-
-from megatron.utils import get_logger
 
 log = get_logger(__name__, rank_zero_only=True)
 

@@ -22,12 +22,9 @@ from itertools import accumulate
 
 import numpy as np
 import torch
-
+import ezpz
 # from megatron import print_rank_0
-from logging import getLogger as get_logger
-
-log = get_logger(__name__)
-
+log = ezpz.get_logger(__name__)
 
 
 def __best_fitting_dtype(vocab_size=None):
@@ -85,7 +82,6 @@ def make_dataset(path, impl, skip_warmup=False):
         return MMapIndexedDataset(path, skip_warmup)
     print(f"Unknown dataset implementation: {impl}")
     return None
-
 
 def dataset_exists(path, impl):
     if impl == "mmap":

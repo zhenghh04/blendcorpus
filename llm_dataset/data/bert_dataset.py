@@ -14,7 +14,7 @@ from megatron import (
 from megatron.data.dataset_utils import (
     get_samples_mapping,
     get_a_and_b_segments,
-    truncate_segments,
+    truncatef_segments,
     create_tokens_and_tokentypes,
     create_masked_lm_predictions
 )

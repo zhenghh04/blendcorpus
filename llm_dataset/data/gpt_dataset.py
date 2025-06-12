@@ -9,18 +9,18 @@ import time
 import numpy as np
 import torch
 from deepspeed.accelerator import get_accelerator
-from megatron import is_rank_0, get_args
-from megatron.core import mpu
-from megatron.data import helpers  # type:ignore
-from megatron.data.blendable_dataset import BlendableDataset
-from megatron.data.dataset_utils import (
+from llm_dataset.utils import is_rank_0, get_args
+import llm_dataset.parallel_state as mpu
+from llm_dataset.data import helpers  # type:ignore
+from llm_dataset.data.blendable_dataset import BlendableDataset
+from llm_dataset.data.dataset_utils import (
     get_datasets_weights_and_num_samples,
     get_datasets_corpuses_weights_and_num_samples,
 )
-from megatron.data.dataset_utils import get_train_valid_test_split_
-from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
+from llm_dataset.data.dataset_utils import get_train_valid_test_split_
+from llm_dataset.data.indexed_dataset import make_dataset as make_indexed_dataset
 
-from megatron.utils import PerfTrace, Profile, get_logger
+from llm_dataset.utils import PerfTrace, Profile, get_logger
 from mpi4py import MPI
 
 dlp = Profile("DATASET")

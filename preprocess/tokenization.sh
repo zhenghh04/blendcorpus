@@ -6,7 +6,8 @@ usage() {
   echo "  --input-dir    Top-level directory containing .gz files (default: .)"
   echo "  --output-dir   Output directory for tokenized files (default: INPUT_DIR_tok)"
   echo "  --num-workers  Number of workers per file (default: 1)"
-  echo "  --tokenizer    Tokenizer type to use (default: Llama2Tokenizer)"
+  echo "  --tokenizer-type    Tokenizer type to use (default: Llama2Tokenizer)"
+  echo "  --tokenizer-model Tokenizer model"
   exit 1
 }
 
@@ -44,19 +45,26 @@ fi
 mapfile -t files < <(find "$INPUT_DIR" -type f \( -name '*.gz' -o -name '*.zst' \))
 # Filter out files already tokenized
 filtered=()
+orig_total=${#files[@]}
+
 for infile in "${files[@]}"; do
   filename=$(basename "$infile")
   stem=${filename%.gz}
   stem=${stem%.zst}
+  stem=${stem%.json}
   relpath="${infile#"$INPUT_DIR"/}"
-  outidx="$OUTPUT_DIR/$(dirname "$relpath")/$stem.idx"
+  outidx="$OUTPUT_DIR/$(dirname "$relpath")/${stem}_text_document.idx"
+  echo $filename $outidx
   if [[ ! -f "$outidx" ]]; then
     filtered+=("$infile")
   fi
 done
 files=("${filtered[@]}")
 total=${#files[@]}
-
+completed=$((orig_total - total))
+if [ RANK -eq 0 ]; then
+    echo "Total files: $orig_total, Completed: $completed, Remaining: $total"
+fi
 # Process files assigned to this rank
 for (( i=RANK; i<total; i+=WORLD_SIZE )); do
   infile="${files[i]}"
@@ -66,7 +74,8 @@ for (( i=RANK; i<total; i+=WORLD_SIZE )); do
   filename=$(basename "$infile")
   stem=${filename%.gz}
   stem=${stem%.zst}
-  outprefix="$outdir/$stem"
+  stem=${stem%.json}
+  outprefix="$outdir/${stem}_text_document"
   preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
     --output-prefix "$outprefix" --workers "$NUM_WORKERS"
 done
