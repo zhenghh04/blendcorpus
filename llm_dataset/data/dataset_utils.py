@@ -26,13 +26,13 @@ import collections
 import numpy as np
 import torch
 
-from megatron import (
-    get_args,
+from llm_dataset import (
+    mpu, 
+    get_args, 
     print_rank_0
 )
-from megatron.core import mpu
-from megatron.data.blendable_dataset import BlendableDataset
-from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
+from llm_dataset.data.blendable_dataset import BlendableDataset
+from llm_dataset.data.indexed_dataset import make_dataset as make_indexed_dataset
 from deepspeed.accelerator import get_accelerator
 DSET_TYPE_BERT = 'standard_bert'
 DSET_TYPE_ICT = 'ict'

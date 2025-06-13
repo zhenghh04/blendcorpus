@@ -275,3 +275,7 @@ def scaled_init_method_normal(sigma, num_layers):
         return torch.nn.init.normal_(tensor, mean=0.0, std=std)
 
     return init_
+
+def print_rank_0(msg):
+    if ez.get_rank() == 0:
+        print(msg)
