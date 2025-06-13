@@ -6,6 +6,10 @@ import math
 import operator
 
 import torch
+from typing import Optional
+import logging
+import os
+import ezpz as ez  # ensure ez.get_rank() is defined
 
 _DLIO_PROFILER_EXIST = True
 _DFTRACER_EXIST = True
