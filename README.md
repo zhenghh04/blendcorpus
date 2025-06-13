@@ -28,3 +28,6 @@ mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 launcher.sh 
      Specifies the tokenizer backend; can be changed to `GPT2BPETokenizer`, etc.  
    - `--tokenizer-model /path/to/spiece.model`  
      Path to the SentencePiece model when required.
+
+## Todo
+https://github.com/openai/tiktoken

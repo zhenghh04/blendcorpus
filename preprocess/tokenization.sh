@@ -8,6 +8,7 @@ usage() {
   echo "  --num-workers  Number of workers per file (default: 1)"
   echo "  --tokenizer-type    Tokenizer type to use (default: Llama2Tokenizer)"
   echo "  --tokenizer-model Tokenizer model"
+  echo "  --append-eod   Append end-of-document token if set (passed to Python script)"
   exit 1
 }
 
@@ -28,6 +29,7 @@ INPUT_DIR="."
 OUTPUT_DIR=""
 NUM_WORKERS=1
 TOKENIZER_TYPE="Llama2Tokenizer"
+APPEND_EOD=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -37,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --num-workers)  NUM_WORKERS="$2"; shift 2 ;;
     --tokenizer-type)     TOKENIZER_TYPE="$2"; shift 2 ;;
     --tokenizer-model)    TOKENIZER_MODEL="$2"; shift 2 ;; 
+    --append-eod) APPEND_EOD="--append-eod"; shift ;;
     -h|--help)      usage ;;
     *) echo "Unknown option: $1"; usage ;;
   esac
@@ -90,7 +93,7 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   stem=${stem%.jsonl}  
   outprefix="$outdir/${stem}"
   preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
-    --output-prefix "$outprefix" --workers "$NUM_WORKERS"
+    --output-prefix "$outprefix" --workers "$NUM_WORKERS" $APPEND_EOD
 done
 
 echo "Rank ${RANK}/${WORLD_SIZE} processed $(( (total + WORLD_SIZE - 1 - RANK) / WORLD_SIZE )) files."
