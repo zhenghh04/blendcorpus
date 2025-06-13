@@ -23,6 +23,7 @@ setup(
         'ezpz @ git+https://github.com/saforem2/ezpz.git',
         'sentencepiece',
         'mpi4py', 
-        'zstandard'
+        'zstandard',
+        'pybind11'
     ],
 )

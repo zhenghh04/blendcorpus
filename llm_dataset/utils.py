@@ -7,6 +7,96 @@ import operator
 
 import torch
 
+_DLIO_PROFILER_EXIST = True
+_DFTRACER_EXIST = True
+
+try:
+    import dftracer  # type:ignore
+except Exception:
+    _DFTRACER_EXIST = False
+
+try:
+    import dlio_profiler  # type:ignore
+except Exception:
+    _DLIO_PROFILER_EXIST = False
+
+if _DFTRACER_EXIST:
+    from dftracer.logger import (  # type:ignore
+        dftracer as PerfTrace,
+        dft_fn as Profile,
+        DFTRACER_ENABLE as DFTRACER_ENABLE,
+    )
+    
+elif _DLIO_PROFILER_EXIST:
+    from dlio_profiler.logger import fn_interceptor as Profile  # type:ignore
+    from dlio_profiler.logger import dlio_logger as PerfTrace  # type:ignore
+else:
+    from functools import wraps
+
+    class Profile(object):
+        def __init__(
+            self, cat, name=None, epoch=None, step=None, image_idx=None, image_size=None
+        ):
+            return
+
+        def log(self, func):
+            return func
+
+        def log_init(self, func):
+            return func
+
+        def iter(self, func, iter_name="step"):
+            return func
+
+        def __enter__(self):
+            return
+
+        def __exit__(self, type, value, traceback):
+            return
+
+        def update(
+            self, epoch=None, step=None, image_idx=None, image_size=None, args={}
+        ):
+            return
+
+        def flush(self):
+            return
+
+        def reset(self):
+            return
+
+        def log_static(self, func):
+            return
+
+    class dftracer(object):
+        def __init__(
+            self,
+        ):
+            self.type = None
+
+        def initialize_log(self, logfile=None, data_dir=None, process_id=-1):
+            return
+
+        def get_time(self):
+            return
+
+        def enter_event(self):
+            return
+
+        def exit_event(self):
+            return
+
+        def log_event(self, name, cat, start_time, duration, string_args=None):
+            return
+
+        def finalize(self):
+            return
+
+    PerfTrace = dftracer()
+    DFTRACER_ENABLE = False
+
+
+
 def current_device_name():
     if torch.cuda.is_available():
         idx = torch.cuda.current_device()
