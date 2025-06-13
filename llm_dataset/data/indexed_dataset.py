@@ -22,9 +22,9 @@ from itertools import accumulate
 
 import numpy as np
 import torch
-import ezpz
+import logging
 # from megatron import print_rank_0
-log = ezpz.get_logger(__name__)
+log = logging.getLogger(__name__)
 
 
 def __best_fitting_dtype(vocab_size=None):

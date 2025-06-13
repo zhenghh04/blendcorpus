@@ -11,14 +11,18 @@ setup(
     entry_points={
         'console_scripts': [
             'preprocess_data=preprocess.preprocess_data:main',
+            'get_meta_data=preprocess.get_meta_data:main',
         ]
     },
-    scripts=['preprocess/tokenization.sh'],
+    scripts=['preprocess/tokenization.sh', 'preprocess/launcher.sh'],
     install_requires=[
         'nltk',
         'torch',
         'numpy',
         'deepspeed',
         'ezpz @ git+https://github.com/saforem2/ezpz.git',
+        'sentencepiece',
+        'mpi4py', 
+        'zstandard'
     ],
 )

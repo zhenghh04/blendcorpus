@@ -8,7 +8,6 @@ import time
 
 import numpy as np
 import torch
-from deepspeed.accelerator import get_accelerator
 from llm_dataset.utils import is_rank_0, get_args
 import llm_dataset.parallel_state as mpu
 from llm_dataset.data import helpers  # type:ignore

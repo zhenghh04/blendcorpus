@@ -51,10 +51,10 @@ for infile in "${files[@]}"; do
   filename=$(basename "$infile")
   stem=${filename%.gz}
   stem=${stem%.zst}
+  stem=${stem%.jsonl}
   stem=${stem%.json}
   relpath="${infile#"$INPUT_DIR"/}"
   outidx="$OUTPUT_DIR/$(dirname "$relpath")/${stem}_text_document.idx"
-  echo $filename $outidx
   if [[ ! -f "$outidx" ]]; then
     filtered+=("$infile")
   fi
@@ -62,11 +62,11 @@ done
 files=("${filtered[@]}")
 total=${#files[@]}
 completed=$((orig_total - total))
-if [ RANK -eq 0 ]; then
+if [ $RANK -eq 0 ]; then
     echo "Total files: $orig_total, Completed: $completed, Remaining: $total"
 fi
 # Process files assigned to this rank
-for (( i=RANK; i<total; i+=WORLD_SIZE )); do
+for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   infile="${files[i]}"
   relpath="${infile#"$INPUT_DIR"/}"
   outdir="$OUTPUT_DIR/$(dirname "$relpath")"
@@ -75,7 +75,8 @@ for (( i=RANK; i<total; i+=WORLD_SIZE )); do
   stem=${filename%.gz}
   stem=${stem%.zst}
   stem=${stem%.json}
-  outprefix="$outdir/${stem}_text_document"
+  stem=${stem%.jsonl}  
+  outprefix="$outdir/${stem}"
   preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
     --output-prefix "$outprefix" --workers "$NUM_WORKERS"
 done
