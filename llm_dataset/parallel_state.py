@@ -764,3 +764,8 @@ def destroy_model_parallel():
     _MPU_PIPELINE_MODEL_PARALLEL_RANK = None
     global _GLOBAL_MEMORY_BUFFER
     _GLOBAL_MEMORY_BUFFER = None
+
+
+def is_rank_0():
+    return torch.distributed.get_rank() == 0
+    

@@ -8,8 +8,8 @@ import time
 
 import numpy as np
 import torch
-from llm_dataset.utils import is_rank_0, get_args
 import llm_dataset.parallel_state as mpu
+from llm_dataset.parallel_state import is_rank_0
 from llm_dataset.data import helpers  # type:ignore
 from llm_dataset.data.blendable_dataset import BlendableDataset
 from llm_dataset.data.dataset_utils import (
