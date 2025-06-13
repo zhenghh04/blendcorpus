@@ -26,7 +26,7 @@ if _DFTRACER_EXIST:
         dft_fn as Profile,
         DFTRACER_ENABLE as DFTRACER_ENABLE,
     )
-    
+
 elif _DLIO_PROFILER_EXIST:
     from dlio_profiler.logger import fn_interceptor as Profile  # type:ignore
     from dlio_profiler.logger import dlio_logger as PerfTrace  # type:ignore
@@ -95,7 +95,23 @@ else:
     PerfTrace = dftracer()
     DFTRACER_ENABLE = False
 
+def get_logger(
+    name: str,
+    level: Optional[str] = None,
+    rank_zero_only: Optional[bool] = True,
+) -> logging.Logger:
+    """Returns a `logging.Logger` object.
 
+    If `rank_zero_only` passed, the level will be set to CRITICAL on all
+    non-zero ranks (and will be set to `level` on RANK==0).
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(
+        str(level if level is not None else os.environ.get("LOG_LEVEL", "INFO")).upper()
+    )
+    if rank_zero_only and ez.get_rank() != 0:
+        logger.setLevel("CRITICAL")
+    return logger
 
 def current_device_name():
     if torch.cuda.is_available():
