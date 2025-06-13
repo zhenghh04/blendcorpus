@@ -21,6 +21,7 @@ from llm_dataset.data.indexed_dataset import make_dataset as make_indexed_datase
 
 from llm_dataset.utils import PerfTrace, Profile, get_logger
 from mpi4py import MPI
+from llm_dataset import get_config as get_args
 
 dlp = Profile("DATASET")
 

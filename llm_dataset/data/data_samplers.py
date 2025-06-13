@@ -6,51 +6,49 @@ import random
 import torch
 import numpy as np
 from torch.utils.data import Dataset
-from megatron import get_args
 from llm_dataset import mpu
 from deepspeed.runtime.dataloader import RepeatingLoader
 
 
-def build_pretraining_data_loader(dataset, consumed_samples):
+def build_pretraining_data_loader(dataset, consumed_samples, config):
     """Buld dataloader given an input dataset."""
 
     if dataset is None:
         return None
-    args = get_args()
 
     # Megatron sampler
-    if args.dataloader_type == 'single':
+    if config.dataloader_type == 'single':
         batch_sampler = MegatronPretrainingSampler(
             total_samples=len(dataset),
             consumed_samples=consumed_samples,
-            micro_batch_size=args.micro_batch_size,
+            micro_batch_size=config.micro_batch_size,
             data_parallel_rank=mpu.get_data_parallel_rank(),
             data_parallel_size=mpu.get_data_parallel_world_size())
-    elif args.dataloader_type == 'cyclic':
+    elif config.dataloader_type == 'cyclic':
         batch_sampler = MegatronPretrainingRandomSampler(
             dataset,
             total_samples=len(dataset),
             consumed_samples=consumed_samples,
-            micro_batch_size=args.micro_batch_size,
+            micro_batch_size=config.micro_batch_size,
             data_parallel_rank=mpu.get_data_parallel_rank(),
             data_parallel_size=mpu.get_data_parallel_world_size(),
-            data_sharding=args.data_sharding)
+            data_sharding=config.data_sharding)
     else:
         raise Exception('{} dataloader type is not supported.'.format(
-                args.dataloader_type))
+                config.dataloader_type))
 
     # Torch dataloader.
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=batch_sampler,
-        num_workers=args.num_workers,
+        num_workers=config.num_workers,
         pin_memory=True,
         multiprocessing_context=(
-            args.multiprocessing_context if args.num_workers > 0
+            config.multiprocessing_context if config.num_workers > 0
             else None
         )
     )
-    if args.repeated_dataloader:
+    if config.repeated_dataloader:
         loader=RepeatingLoader(loader)
     return loader
 
@@ -116,10 +114,9 @@ class MegatronPretrainingSampler:
 
 class RandomSeedDataset(Dataset):
 
-    def __init__(self, dataset):
-        args = get_args()
-        self.base_seed = args.seed
-        self.curr_seed = args.seed
+    def __init__(self, dataset, config):
+        self.base_seed = config.seed
+        self.curr_seed = config.seed
         self.dataset = dataset
 
     def __len__(self):
