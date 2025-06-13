@@ -71,7 +71,5 @@ def set_config(config):
     for key, val in items:
         if hasattr(DATA_CONFIG, key):
             setattr(DATA_CONFIG, key, val)
-        else:
-            raise ValueError(f"Unknown config key: {key}")
 
 from .utils import print_rank_0
