@@ -7,12 +7,6 @@ import operator
 
 import torch
 
-from megatron.core import parallel_state
-from megatron import get_args
-
-from deepspeed import get_accelerator
-
-
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     assert numerator % denominator == 0, "{} is not divisible by {}".format(
@@ -45,34 +39,6 @@ def get_attr_wrapped_model(model, attr, allow_none=True):
         model = model.module
     return getattr(model, attr)
 
-def get_model_type(model):
-    return get_attr_wrapped_model(model, 'model_type')
-
-def get_model_config(model):
-    args = get_args()
-    if args.deepspeed:
-        return get_attr_wrapped_model(model.module, 'config', allow_none=False)
-    return get_attr_wrapped_model(model, 'config', allow_none=False)
-
-class GlobalMemoryBuffer:
-    """Global buffer to avoid dynamic memory allocations.
-    Caller should ensure that buffers of the same name
-    are not used concurrently."""
-
-    def __init__(self):
-        self.buffer = {}
-
-    def get_tensor(self, tensor_shape, dtype, name):
-        required_len = reduce(operator.mul, tensor_shape, 1)
-        if self.buffer.get((name, dtype), None) is None or \
-                self.buffer[(name, dtype)].numel() < required_len:
-            self.buffer[(name, dtype)] = \
-                torch.empty(required_len,
-                            dtype=dtype,
-                            device=get_accelerator().current_device_name(),
-                            requires_grad=False)
-
-        return self.buffer[(name, dtype)][0:required_len].view(*tensor_shape)
 
 def _kernel_make_viewless_tensor(inp, requires_grad):
     '''Make a viewless tensor.
