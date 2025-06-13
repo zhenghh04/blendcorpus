@@ -11,11 +11,14 @@ pip install -e .
 mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 launcher.sh \
     tokenization.sh \
     --input-dir data \
-    --output-dir data_Llama2Tokenizer \
+    --output-dir data_Llama2Tokenizer_eod \
     --num-workers 16 \
     --tokenizer-type Llama2Tokenizer \
+    --append-eod \
     --tokenizer-model ./llm_dataset/preprocess/tokenizer/tokenizer.model
 ```
+
+This will create tokenized data in ``data_Llama2Tokenizer_eod`` folder. Settings will be logged in ``data_Llama2Tokenizer_eod`` folder. 
 
 **Script Arguments**  
    - `--input-dir data`  
@@ -28,6 +31,8 @@ mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 launcher.sh 
      Specifies the tokenizer backend; can be changed to `GPT2BPETokenizer`, etc.  
    - `--tokenizer-model /path/to/spiece.model`  
      Path to the SentencePiece model when required.
+   - `--append-eod` 
+     Whether to append end of document token or not. 
 
 ## Todo
 https://github.com/openai/tiktoken
