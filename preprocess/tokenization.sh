@@ -11,6 +11,18 @@ usage() {
   exit 1
 }
 
+## Setting threads in case it blows up
+export NUMEXPR_NUM_THREADS=64
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export VECLIB_MAXIMUM_THREADS=1
+export TF_NUM_INTRAOP_THREADS=1
+export TF_NUM_INTEROP_THREADS=1
+
 # Default values
 INPUT_DIR="."
 OUTPUT_DIR=""
