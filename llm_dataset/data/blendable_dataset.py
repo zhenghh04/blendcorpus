@@ -10,9 +10,8 @@ import logging
 import numpy as np
 import torch
 
-from deepspeed.accelerator import get_accelerator
 # from megatron import print_rank_0
-from llm_dataset import parallel_state as mpu
+from llm_dataset import mpu
 from llm_dataset.utils import Profile, PerfTrace, get_logger
 from mpi4py import MPI
 

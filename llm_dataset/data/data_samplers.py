@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from megatron import get_args
-from megatron.core import mpu
+from llm_dataset import mpu
 from deepspeed.runtime.dataloader import RepeatingLoader
 
 
