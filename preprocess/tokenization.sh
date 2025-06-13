@@ -72,6 +72,10 @@ for infile in "${files[@]}"; do
   outidx="$OUTPUT_DIR/$(dirname "$relpath")/${stem}_text_document.idx"
   if [[ ! -f "$outidx" ]]; then
     filtered+=("$infile")
+  else
+      if [ $RANK -eq 0 ]; then
+	  echo "$infile is already tokenized"
+      fi
   fi
 done
 files=("${filtered[@]}")
