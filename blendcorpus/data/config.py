@@ -9,8 +9,8 @@ class DataConfig:
     data_path: Optional[List[str]] = None
     data_file_list: Optional[str] = None
     shuffle_sample_in_corpus: bool = False
-    blend_sample_in_corpus: bool = False
-    splits_string: str = '969, 30, 1'
+    blend_sample_in_corpus: bool = True
+    split: str = '969, 30, 1'
     train_data_path: Optional[List[str]] = None
     valid_data_path: Optional[List[str]] = None
     test_data_path: Optional[List[str]] = None
@@ -50,6 +50,7 @@ class DataConfig:
     micro_batch_size: int = 1
     global_batch_size: int = 1
     train_iters: int = 1
+    eval_iters: int = 0
     seed: int = 123
 
 # Set DATA_CONFIG as an instance of DataConfig

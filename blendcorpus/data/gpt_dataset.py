@@ -25,6 +25,51 @@ from mpi4py import MPI
 dlp = Profile("DATASET")
 log = get_logger(__name__, rank_zero_only=True)
 
+def build_gpt_datasets(config):
+    files = []
+    weights = []
+    flist = []
+    corpus_all = []
+    with open(config.data_file_list, 'r') as fin:
+        for f in fin.readlines():
+            w, fname, c = f.split()
+            weights.append(float(w))
+            flist.append(fname)
+            files.append(float(w))
+            files.append(fname)
+            files.append(c)
+            if c not in corpus_all:
+                corpus_all.append(c)
+    weights = np.array(weights)
+    weights = weights/np.sum(weights)
+    train_samples = config.global_batch_size*config.train_iters
+    test_iters = config.eval_iters
+    eval_samples = config.global_batch_size*config.eval_iters
+    test_samples = config.global_batch_size*config.eval_iters
+
+    num_datasets = len(weights)
+    print_rank_0(f"Reading data from {config.data_file_list}")
+    print_rank_0(f"Number of datasets: {num_datasets}")
+    print_rank_0(f"Global batch size: {config.global_batch_size}")
+    print_rank_0(f"Training iterations: {config.train_iters}")
+    print_rank_0(f"Evaluation iterations: {config.eval_iters}")
+    print_rank_0(f"Total number of training samples: {train_samples}")
+    print_rank_0(f"Total number of evaluation samples: {eval_samples}")
+    print_rank_0(f"Total number of testing samples: {test_samples}")
+    train_valid_test_num_samples = [train_samples, eval_samples, test_samples]
+    seed=config.seed
+    data_impl = config.data_impl
+    skip_warmup = not config.mmap_warmup
+    seq_length = config.seq_length
+    splits_string = config.split          
+    train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
+        files, data_impl, splits_string,
+        train_valid_test_num_samples,
+        seq_length, seed, skip_warmup,
+        data_cache_path=config.data_cache_path)
+    return train_ds, valid_ds, test_ds
+
+
 class DatasetBuilder:
     """
     This is for building individual dataset from each dataset file
@@ -163,43 +208,6 @@ class BuildCorpusDataset(torch.utils.data.Dataset):
         else:
             return self.dataset_builders[i].Build()[j]
 
-def build_datasets(config):
-    files = []
-    weights = []
-    flist = []
-    corpus_all = []
-    with open(config.data_file_list, 'r') as fin:
-        for f in fin.readlines():
-            w, fname, c = f.split()
-            weights.append(float(w))
-            flist.append(fname)
-            files.append(float(w))
-            files.append(fname)
-            files.append(c)
-            if c not in corpus_all:
-                corpus_all.append(c)
-    weights = np.array(weights)
-    weights = weights/np.sum(weights)
-    num_samples = config.global_batch_size*config.train_iters
-    num_datasets = len(weights)
-    print_rank_0(f"Reading data from {config.data_file_list}")
-    print_rank_0(f"Number of datasets: {num_datasets}")
-    print_rank_0(f"Global batch size: {config.global_batch_size}")
-    print_rank_0(f"Training iterations: {config.train_iters}")
-    print_rank_0(f"Total number of samples: {num_samples}")
-    a, b, c = [ float(d) for d in config.splits_string.split(",")]
-    train_valid_test_num_samples = [num_samples, int(num_samples*b/a), int(num_samples*c/a)]
-    seed=config.seed
-    data_impl = config.data_impl
-    skip_warmup = not config.mmap_warmup
-    seq_length = config.seq_length
-    splits_string = config.splits_string          
-    train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
-        files, data_impl, config.splits_string,
-        train_valid_test_num_samples,
-        seq_length, seed, skip_warmup,
-        data_cache_path=config.data_cache_path)
-    return train_ds, valid_ds, test_ds
 
 @dlp.log
 def build_train_valid_test_datasets(
@@ -246,7 +254,9 @@ def build_train_valid_test_datasets(
             sum, zip(*datasets_train_valid_test_num_samples)
         )
 
-
+        num_samples = {'train': train_num_samples, 
+            'valid': valid_num_samples, 
+            'test': test_num_samples}
 
         # Predetermine whether need to build the specific dataset or not.
         start_time = time.time()
@@ -261,6 +271,8 @@ def build_train_valid_test_datasets(
         args = get_args()
         @dlp.log
         def build_corpus_datasets(dataset_type="train"):
+            if num_samples[dataset_type] == 0:
+                return None, None
             start_time = time.time()
             log.debug(f" >>> Building {dataset_type} corpus datasets ...")
             datasets = []
@@ -307,7 +319,7 @@ def build_train_valid_test_datasets(
                 datasets.append(BuildCorpusDataset(corpus_builders[c]))
                 total += datasets[-1].num_samples
                 corpus_weights_achieved[c] = (
-                    float(datasets[-1].num_samples) / train_num_samples
+                    float(datasets[-1].num_samples) / num_samples[dataset_type]
                 )
                 log.debug(
                     f"    {c}: {datasets[-1].num_samples} w={corpus_weights_achieved[c]} (expected: {corpus_weights[c]})"

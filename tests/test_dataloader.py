@@ -13,6 +13,8 @@ from blendcorpus import (
     build_gpt_datasets, 
     build_pretraining_data_loader
 )
+
+
 import argparse
 import datetime
 
@@ -21,7 +23,7 @@ def print_rank_0(msg):
     if comm.rank==0:
         print(f" [INFO][{datetime.datetime.now()}] {msg}", flush=True)
 end_time = time.time()        
-print_rank_0(f"Loaded python modules in {end_time - start_time} seconds") 
+#print_rank_0(f"Loaded python modules in {end_time - start_time} seconds") 
 
 def main():
     ## initialize parallel degree
@@ -71,7 +73,7 @@ def main():
                             type=int, default=2,
                             help="Number of worker processes for DataLoader")
         parser.add_argument("--multiprocessing-context", dest="multiprocessing_context",
-                            default="spawn",
+                            default="fork",
                             help="Multiprocessing context for DataLoader workers")
         parser.add_argument("--repeated-dataloader", dest="repeated_dataloader",
                             action="store_true",
@@ -84,12 +86,11 @@ def main():
     os.makedirs(args.trace_dir, exist_ok=True)
     # Build datasets
     start_build_dataset = time.time()
-
     print_rank_0(f"Starting to build the blendable dataset")
     train_ds, valid_ds, test_ds = build_gpt_datasets(config)
     end_build_dataset = time.time()
     print_rank_0(f"Finished building the blendable dataset in {end_build_dataset - start_build_dataset} second")
-    print_rank_0(f"Total number of samples: {len(train_ds)} {len(valid_ds)} {len(test_ds)}")
+    print_rank_0(f"Total number of samples: {len(train_ds)} {len(valid_ds) if valid_ds is not None else 0} {len(test_ds) if test_ds is not None else 0}")
 
     def get_sample_info(blendable_dataset, idx):
         # corpus dataset
@@ -106,10 +107,6 @@ def main():
         #v = blendable_dataset[idx]['text']
         #norm = np.linalg.norm(v)
         return prefix, corpus, fcds
-
-    num_batches =  args.train_iters
-    print_rank_0(f"global_batch_size: {args.global_batch_size}")
-    print_rank_0(f"number of batches: {num_batches}")
 
     #-------
     files = []
@@ -129,7 +126,7 @@ def main():
     # ---- 
     fout = open("samples_list.jsonl", "w")
     if comm.rank == 0:
-        for i in range(num_batches):
+        for i in range(args.train_iters):
             ns_corpus = {}
             for c in corpus_all:
                 ns_corpus[c] = 0
@@ -138,6 +135,7 @@ def main():
                 ns_corpus[corpus] +=1
                 fout.write(f"\u007b 'batch': {i}, 'sample': {j}, 'corpus': '{corpus}', 'prefix': '{prefix}', 'dataset_sample_index': {idx} \u007d\n")
             fout.write(f"\u007b 'batch': {i}, 'histogram': {ns_corpus} \u007d \n")
+
     comm.Barrier()        
     start_build_dataloader = time.time()
     print_rank_0(f"Starting to build the data loader")
