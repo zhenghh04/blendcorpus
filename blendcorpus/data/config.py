@@ -45,8 +45,8 @@ class DataConfig:
     train_shuffle_idx_path: Optional[str] = None
     repeated_dataloader: bool = False
     multiprocessing_context: str = 'fork'
-    use_dataset_only: bool = False, 
-    dataloader_type: str = 'single', 
+    use_dataset_only: bool = False
+    dataloader_type: str = 'single'
     micro_batch_size: int = 1
     global_batch_size: int = 1
     train_iters: int = 1

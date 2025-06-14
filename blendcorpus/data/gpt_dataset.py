@@ -810,7 +810,6 @@ class GPTDataset(torch.utils.data.Dataset):
 
         if args.use_dataset_only:
             sample_dict.update({"labels": np.array(sample, dtype=np.int64)})
-
         return sample_dict
 
 

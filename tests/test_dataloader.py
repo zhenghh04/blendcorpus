@@ -83,6 +83,7 @@ def main():
     args = get_args()
     set_config(args)
     config = get_config()
+    print(config)
     os.makedirs(args.trace_dir, exist_ok=True)
     # Build datasets
     start_build_dataset = time.time()

@@ -67,6 +67,22 @@ valid_dataloader = build_pretraining_data_loader(
 test_dataloader = build_pretraining_data_loader(test_ds, consumed_test_samples, config)
 
 
+    # Build iterators.
+dl_type = args.dataloader_type
+assert dl_type in ["single", "cyclic"]
+
+def cyclic_iter(iter):
+    while True:
+        for x in iter:
+            yield x
+
+if train_dataloader is not None:
+  train_data_iterator = (
+      iter(train_dataloader)
+        if dl_type == "single"
+        else iter(cyclic_iter(train_dataloader))
+    )
+
 def get_batch(data_iterator):
     """Generate a batch"""
     args = get_args()
@@ -103,19 +119,13 @@ def get_batch(data_iterator):
 
 Each item from the data loader is (size of args.micro_batch_size (8 in this case))
 ```
-{'dataset_idx': tensor([0, 0, 0, 0, 0, 0, 0, 0]), 'input_ids': tensor([[  550, 29871, 29896,  ..., 29871, 29906, 29900],
-        [  393,  1369,  1196,  ...,   916, 27690,  4486],
-        [29911,  4448,  3446,  ...,  2831,  1906,   451],
+ {'dataset_idx': tensor([0, 0, 0, 0, 0, 0, 0, 0]), 'text': tensor([[29091,   350,  1525,  ..., 29890,   440,   487],
+        [29891,  6378, 29889,  ...,   448, 18043,   491],
+        [  508,  5142,  8037,  ...,   393,  2367,   963],
         ...,
-        [ 1183,  4083,  5864,  ...,  3256,   304,  6568],
-        [ 4644,  1336,  1632,  ...,  1730, 29892, 24438],
-        [  714,   278,  7135,  ...,   313, 29924,  2965]]), 'labels': tensor([[  550, 29871, 29896,  ..., 29871, 29906, 29900],
-        [  393,  1369,  1196,  ...,   916, 27690,  4486],
-        [29911,  4448,  3446,  ...,  2831,  1906,   451],
-        ...,
-        [ 1183,  4083,  5864,  ...,  3256,   304,  6568],
-        [ 4644,  1336,  1632,  ...,  1730, 29892, 24438],
-        [  714,   278,  7135,  ...,   313, 29924,  2965]])}
+        [  261,  5866, 18296,  ...,   322,  8820,   526],
+        [  459,   793, 29915,  ...,  1735, 29889,    13],
+        [29915, 29879,  4315,  ...,  6115, 24060, 18864]])}
 ```
 
 
