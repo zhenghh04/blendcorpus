@@ -2,8 +2,8 @@
 # LLM dataset utiltity
 ## Install
 ```bash
-git clone https://github.com/llm_dataset.git
-cd llm_dataset
+git clone https://github.com/blendcorpus.git
+cd blendcorpus
 pip install -e .
 ```
 ## Tokenizing datasat
@@ -34,5 +34,91 @@ This will create tokenized data in ``data_Llama2Tokenizer_eod`` folder. Settings
    - `--append-eod` 
      Whether to append end of document token or not. 
 
-## Todo
+## Using the dataset and dataloader
+```python
+
+from blendcorpus import (
+    get_config, 
+    set_config, 
+    mpu, 
+    build_gpt_datasets, 
+    build_pretraining_data_loader
+)
+
+mpu.initialize_model_parallel(
+    tensor_model_parallel_size=1,
+    pipeline_model_parallel_size=1,
+    sequence_parallel_size=1,
+    )
+
+# check blendcorpus.data.config for details 
+set_config(args)
+config = get_config()
+
+# build datasets
+train_ds, valid_ds, test_ds = build_gpt_datasets(config)
+
+# build dataloaders
+# consumed_train_samples = restart_iters * args.global_batch_size
+train_dataloader = build_pretraining_data_loader(
+        train_ds, consumed_train_samples, config)
+valid_dataloader = build_pretraining_data_loader(
+        valid_ds, consumed_valid_samples, config)
+test_dataloader = build_pretraining_data_loader(test_ds, consumed_test_samples, config)
+
+
+def get_batch(data_iterator):
+    """Generate a batch"""
+    args = get_args()
+    tokenizer = get_tokenizer()
+
+    # Items and their type.
+    keys = ['text']
+    datatype = torch.int64
+
+    # Broadcast data.
+    if data_iterator is not None:
+        data = next(data_iterator)
+    else:
+        data = None
+    data_b = tensor_parallel.broadcast_data(keys, data, datatype)
+
+    # Unpack.
+    tokens_ = data_b['text'].long()
+    labels = tokens_[:, 1:].contiguous()
+    tokens = tokens_[:, :-1].contiguous()
+
+    # Get the masks and postition ids.
+    attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
+        tokens,
+        tokenizer.eod,
+        args.reset_position_ids,
+        args.reset_attention_mask,
+        args.eod_mask_loss)
+
+    return tokens, labels, loss_mask, attention_mask, position_ids
+
+
+```
+
+Each item from the data loader is (size of args.micro_batch_size (8 in this case))
+```
+{'dataset_idx': tensor([0, 0, 0, 0, 0, 0, 0, 0]), 'input_ids': tensor([[  550, 29871, 29896,  ..., 29871, 29906, 29900],
+        [  393,  1369,  1196,  ...,   916, 27690,  4486],
+        [29911,  4448,  3446,  ...,  2831,  1906,   451],
+        ...,
+        [ 1183,  4083,  5864,  ...,  3256,   304,  6568],
+        [ 4644,  1336,  1632,  ...,  1730, 29892, 24438],
+        [  714,   278,  7135,  ...,   313, 29924,  2965]]), 'labels': tensor([[  550, 29871, 29896,  ..., 29871, 29906, 29900],
+        [  393,  1369,  1196,  ...,   916, 27690,  4486],
+        [29911,  4448,  3446,  ...,  2831,  1906,   451],
+        ...,
+        [ 1183,  4083,  5864,  ...,  3256,   304,  6568],
+        [ 4644,  1336,  1632,  ...,  1730, 29892, 24438],
+        [  714,   278,  7135,  ...,   313, 29924,  2965]])}
+```
+
+
+
+
 https://github.com/openai/tiktoken
