@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from llm_dataset.data.gpt_dataset import get_indexed_dataset_
-from llm_dataset import print_rank_0
+from blendcorpus.data.gpt_dataset import get_indexed_dataset_
+from blendcorpus import print_rank_0
 import json
 import numpy as np
 import glob
