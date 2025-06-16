@@ -1,5 +1,11 @@
+# LLM data pipeline
 
-# LLM dataset utiltity
+<p align="center">
+  <img src="./.docs/figures/BlendCorpus.jpg" alt="BlendCorpus Logo" width="200"/>
+</p>
+
+**BlendCorpus** is a modular and scalable data preprocessing and loading framework for large language model (LLM) training. It supports efficient tokenization using MPI-based parallelism and provides customizable dataloaders compatible with various LLM training workflows such as Megatron-DeepSpeed and TorchTitan. **BlendCorpus** allows seamless integration of different tokenizers, dataset formats, and distributed training setups, making it suitable for research and production-scale LLM pipelines.
+
 ## Install
 ```bash
 git clone https://github.com/blendcorpus.git
