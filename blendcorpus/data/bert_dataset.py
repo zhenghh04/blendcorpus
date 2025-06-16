@@ -7,10 +7,12 @@ import torch
 
 from .config import (
     get_args,
-    get_tokenizer,
     mpu,
     print_rank_0
 )
+
+from blendcorpus.global_vars import build_tokenizer, get_tokenizer
+
 from .dataset_utils import (
     get_samples_mapping,
     get_a_and_b_segments,

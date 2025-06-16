@@ -70,7 +70,11 @@ train_dataloader = build_pretraining_data_loader(
         train_ds, consumed_train_samples, config)
 valid_dataloader = build_pretraining_data_loader(
         valid_ds, consumed_valid_samples, config)
-test_dataloader = build_pretraining_data_loader(test_ds, consumed_test_samples, config)
+test_dataloader = build_pretraining_data_loader(
+        test_ds, 
+        consumed_test_samples, 
+        config
+)
 
 
     # Build iterators.
@@ -98,12 +102,13 @@ def get_batch(data_iterator):
     keys = ['text']
     datatype = torch.int64
 
-    # Broadcast data.
+    # Broadcast data in model parallel group
     if data_iterator is not None:
         data = next(data_iterator)
     else:
         data = None
-    data_b = tensor_parallel.broadcast_data(keys, data, datatype)
+    
+    data_b = mpu.broadcast_data_in_model_parallel_group(keys, data, datatype)
 
     # Unpack.
     tokens_ = data_b['text'].long()
@@ -119,7 +124,6 @@ def get_batch(data_iterator):
         args.eod_mask_loss)
 
     return tokens, labels, loss_mask, attention_mask, position_ids
-
 
 ```
 
