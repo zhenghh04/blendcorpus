@@ -43,6 +43,8 @@ This will create tokenized data in ``data_Llama2Tokenizer_eod`` folder. Settings
 ## Using the dataset and dataloader
 ```python
 
+from blendcorpus.utils import get_ltor_masks_and_position_ids
+
 from blendcorpus import (
     get_config, 
     set_config, 
