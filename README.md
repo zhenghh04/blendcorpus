@@ -136,5 +136,7 @@ Each item from the data loader is (size of args.micro_batch_size (8 in this case
 
 
 
-
+## Ongoing other supports 
+### Other tokenizers
 https://github.com/openai/tiktoken
+### Integration with TorchTitan
