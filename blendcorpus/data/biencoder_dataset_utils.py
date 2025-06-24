@@ -9,7 +9,6 @@ from blendcorpus.utils import print_rank_0
 from .config import get_config as get_args
 from .config import get_tokenizer
 
-from megatron.core import mpu, tensor_parallel
 from .dataset_utils import create_masked_lm_predictions, \
                                             pad_and_convert_to_numpy
 from .data_samplers import MegatronPretrainingSampler
@@ -62,7 +61,7 @@ def get_ict_batch(data_iterator):
         data = None
     else:
         data = next(data_iterator)
-    data_b = tensor_parallel.broadcast_data(keys, data, datatype)
+    data_b = mpu.broadcast_data_within_model_parallel_group(keys, data, datatype)
 
     # Unpack.
     query_tokens = data_b['query_tokens'].long()

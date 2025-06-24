@@ -1,5 +1,11 @@
+# LLM data pipeline
 
-# LLM dataset utiltity
+<p align="center">
+  <img src="./.docs/figures/BlendCorpus.jpg" alt="BlendCorpus Logo" width="400"/>
+</p>
+
+**BlendCorpus** is a modular and scalable data preprocessing and loading framework for large language model (LLM) training. It supports efficient tokenization using MPI-based parallelism and provides customizable dataloaders compatible with various LLM training workflows such as Megatron-DeepSpeed and TorchTitan. **BlendCorpus** allows seamless integration of different tokenizers, dataset formats, and distributed training setups, making it suitable for research and production-scale LLM pipelines.
+
 ## Install
 ```bash
 git clone https://github.com/blendcorpus.git
@@ -36,7 +42,6 @@ This will create tokenized data in ``data_Llama2Tokenizer_eod`` folder. Settings
 
 ## Using the dataset and dataloader
 ```python
-
 from blendcorpus import (
     get_config, 
     set_config, 
@@ -44,6 +49,8 @@ from blendcorpus import (
     build_gpt_datasets, 
     build_pretraining_data_loader
 )
+
+from blendcorpus.utils import get_ltor_masks_and_position_ids
 
 mpu.initialize_model_parallel(
     tensor_model_parallel_size=1,
@@ -95,12 +102,13 @@ def get_batch(data_iterator):
     keys = ['text']
     datatype = torch.int64
 
-    # Broadcast data.
+    # Broadcast data in model parallel group
     if data_iterator is not None:
         data = next(data_iterator)
     else:
         data = None
-    data_b = tensor_parallel.broadcast_data(keys, data, datatype)
+    
+    data_b = mpu.broadcast_data_in_model_parallel_group(keys, data, datatype)
 
     # Unpack.
     tokens_ = data_b['text'].long()
@@ -117,7 +125,6 @@ def get_batch(data_iterator):
 
     return tokens, labels, loss_mask, attention_mask, position_ids
 
-
 ```
 
 Each item from the data loader is (size of args.micro_batch_size (8 in this case))
@@ -133,5 +140,7 @@ Each item from the data loader is (size of args.micro_batch_size (8 in this case
 
 
 
-
+## Ongoing other supports 
+### Other tokenizers
 https://github.com/openai/tiktoken
+### Integration with TorchTitan

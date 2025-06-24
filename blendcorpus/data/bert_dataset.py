@@ -5,10 +5,13 @@
 import numpy as np
 import torch
 
+from .config import get_config as get_args
+from blendcorpus.global_vars import get_tokenizer 
 import blendcorpus.parallel_state as mpu
-from blendcorpus.utils import print_rank_0
+# tensor_parallel
 from .config import get_config as get_args
 from .config import get_tokenizer
+from blendcorpus.utils import print_rank_0
 
 from .dataset_utils import (
     get_samples_mapping,
