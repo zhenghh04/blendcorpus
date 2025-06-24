@@ -9,7 +9,9 @@ import torch
 from typing import Optional
 import logging
 import os
-import ezpz as ez
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 _DLIO_PROFILER_EXIST = True
 _DFTRACER_EXIST = True
@@ -113,7 +115,7 @@ def get_logger(
     logger.setLevel(
         str(level if level is not None else os.environ.get("LOG_LEVEL", "INFO")).upper()
     )
-    if rank_zero_only and ez.get_rank() != 0:
+    if rank_zero_only and rank != 0:
         logger.setLevel("CRITICAL")
     return logger
 
@@ -277,5 +279,5 @@ def scaled_init_method_normal(sigma, num_layers):
     return init_
 import datetime
 def print_rank_0(msg):
-    if ez.get_rank()==0:
+    if rank==0:
         print(f" [INFO][{datetime.datetime.now()}] {msg}", flush=True)

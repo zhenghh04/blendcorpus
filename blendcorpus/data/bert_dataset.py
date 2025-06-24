@@ -5,12 +5,11 @@
 import numpy as np
 import torch
 
-from .config import (
-    get_args,
-    get_tokenizer,
-    mpu,
-    print_rank_0
-)
+import blendcorpus.parallel_state as mpu
+from blendcorpus.utils import print_rank_0
+from .config import get_config as get_args
+from .config import get_tokenizer
+
 from .dataset_utils import (
     get_samples_mapping,
     get_a_and_b_segments,

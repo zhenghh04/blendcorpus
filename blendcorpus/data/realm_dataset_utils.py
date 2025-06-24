@@ -4,9 +4,9 @@ import time
 import numpy as np
 import torch
 
-from llm_dataset import print_rank_0
+from blendcorpus import print_rank_0
 from megatron.core import mpu, tensor_parallel
-from megatron.data.dataset_utils import create_masked_lm_predictions, pad_and_convert_to_numpy
+from .dataset_utils import create_masked_lm_predictions, pad_and_convert_to_numpy
 from megatron import get_args, get_tokenizer, print_rank_0
 from deepspeed.accelerator import get_accelerator
 

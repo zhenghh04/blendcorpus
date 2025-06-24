@@ -4,11 +4,15 @@ import time
 import numpy as np
 import torch
 
-from megatron import get_args, get_tokenizer, print_rank_0
+import blendcorpus.parallel_state as mpu
+from blendcorpus.utils import print_rank_0
+from .config import get_config as get_args
+from .config import get_tokenizer
+
 from megatron.core import mpu, tensor_parallel
-from megatron.data.dataset_utils import create_masked_lm_predictions, \
+from .dataset_utils import create_masked_lm_predictions, \
                                             pad_and_convert_to_numpy
-from megatron.data.data_samplers import MegatronPretrainingSampler
+from .data_samplers import MegatronPretrainingSampler
 from deepspeed.accelerator import get_accelerator
 def make_attention_mask(source_block, target_block):
     """

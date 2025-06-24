@@ -6,8 +6,8 @@ import shutil
 import numpy as np
 import torch
 
-from megatron import get_args
-from megatron.core import mpu
+from .config import get_config as get_args
+import blendcorpus.parallel_state as mpu
 
 
 def detach(tensor):

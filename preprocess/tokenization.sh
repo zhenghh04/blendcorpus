@@ -72,7 +72,7 @@ if [[ -z "${RANK:-}" || -z "${WORLD_SIZE:-}" ]]; then
 fi
 
 # Gather all .gz and .zst files
-mapfile -t files < <(find "$INPUT_DIR" -type f \( -name '*.gz' -o -name '*.zst' \))
+mapfile -t files < <(find -L "$INPUT_DIR" -type f \( -name '*.gz' -o -name '*.zst' -o -name '*.json' -o -name '*.jsonl' \))
 # Filter out files already tokenized
 filtered=()
 orig_total=${#files[@]}
@@ -111,7 +111,7 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   stem=${stem%.json}
   stem=${stem%.jsonl}  
   outprefix="$outdir/${stem}"
-  preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
+  RANK=0 WORLD_SIZE=1 preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
     --output-prefix "$outprefix" --workers "$NUM_WORKERS" $APPEND_EOD
 done
 

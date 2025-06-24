@@ -5,10 +5,10 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 from torchvision import datasets
-from megatron import get_args
-from megatron.data.image_folder import ImageFolder
-from megatron.data.autoaugment import ImageNetPolicy
-from megatron.data.data_samplers import RandomSeedDataset
+from .config import get_config as get_args
+from .image_folder import ImageFolder
+from .autoaugment import ImageNetPolicy
+from .data_samplers import RandomSeedDataset
 from PIL import Image, ImageFilter, ImageOps
 
 

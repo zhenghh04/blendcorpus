@@ -10,6 +10,8 @@ import numpy as np
 import torch
 import blendcorpus.parallel_state as mpu
 from blendcorpus.utils import print_rank_0
+from .config import get_config as get_args
+
 from . import helpers  # type:ignore
 from .blendable_dataset import BlendableDataset
 from .dataset_utils import (
@@ -18,7 +20,7 @@ from .dataset_utils import (
     get_train_valid_test_split_
 )
 from .indexed_dataset import make_dataset as make_indexed_dataset
-from .config import get_config as get_args
+
 from blendcorpus.utils import PerfTrace, Profile, get_logger
 from mpi4py import MPI
 

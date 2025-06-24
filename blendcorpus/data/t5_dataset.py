@@ -7,8 +7,8 @@ import collections
 import numpy as np
 import torch
 
-from megatron import get_tokenizer
-from megatron.data.dataset_utils import (
+from blendcorpus import get_tokenizer
+from .dataset_utils import (
     create_masked_lm_predictions,
     get_samples_mapping
 )
