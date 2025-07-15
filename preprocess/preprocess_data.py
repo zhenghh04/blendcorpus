@@ -240,6 +240,8 @@ def get_args():
                    help='Allow remote code execution when loading tokenizer.')
     args = parser.parse_args()
     args.keep_empty = False
+    if args.tokenizer_type == 'HFTokenizer':
+        args.trust_remote_code = True
 
     if args.tokenizer_type.lower().startswith('bert') and not args.split_sentences:
         print("Are you sure you don't want to split sentences?")
