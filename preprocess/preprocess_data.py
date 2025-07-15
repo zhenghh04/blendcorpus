@@ -204,7 +204,8 @@ def get_args():
     group.add_argument('--tokenizer-type', type=str, required=True,
                        choices=['BertWordPieceLowerCase','BertWordPieceCase',
                                 'GPT2BPETokenizer', 'SentencePieceTokenizer',
-                                'GPTSentencePieceTokenizer', 'NullTokenizer', 'Llama2Tokenizer'],
+                                'GPTSentencePieceTokenizer', 'NullTokenizer', 
+                                'Llama2Tokenizer', 'HFTokenizer'],
                        help='What type of tokenizer to use.')
     group.add_argument('--tokenizer-model', type=str, default=None,
                        help='YTTM tokenizer model.')
@@ -233,6 +234,10 @@ def get_args():
                         help='Number of file partitions')
     group.add_argument('--log-interval', type=int, default=1000,
                        help='Interval between progress updates')
+    group.add_argument('--seq-length', type=int, default=2048,
+                   help='Maximum sequence length for HFTokenizer.')
+    group.add_argument('--trust-remote-code', action='store_true',
+                   help='Allow remote code execution when loading tokenizer.')
     args = parser.parse_args()
     args.keep_empty = False
 
