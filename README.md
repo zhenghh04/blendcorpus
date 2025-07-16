@@ -12,7 +12,7 @@ git clone https://github.com/blendcorpus.git
 cd blendcorpus
 pip install -e .
 ```
-## Tokenizing datasat
+## Tokenizing dataset
 ```bash
 mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 launcher.sh \
     tokenization.sh \
