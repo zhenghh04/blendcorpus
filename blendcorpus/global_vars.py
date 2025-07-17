@@ -61,11 +61,6 @@ def get_wandb_writer():
     return _GLOBAL_WANDB_WRITER
 
 
-def get_timers():
-    """Return timers."""
-    _ensure_var_is_initialized(_GLOBAL_TIMERS, 'timers')
-    return _GLOBAL_TIMERS
-
 def set_global_variables(args):
     """Set args, tokenizer, tensorboard-writer, adlr-autoresume, and timers."""
 
@@ -169,12 +164,6 @@ def _set_wandb_writer(args):
         os.makedirs(wandb_kwargs['dir'], exist_ok=True)
         wandb.init(**wandb_kwargs)
         _GLOBAL_WANDB_WRITER = wandb
-
-def _set_timers(args):
-    """Initialize timers."""
-    global _GLOBAL_TIMERS
-    _ensure_var_is_not_initialized(_GLOBAL_TIMERS, 'timers')
-    _GLOBAL_TIMERS = Timers(args.timing_log_level, args.timing_log_option)
 
 
 def _ensure_var_is_initialized(var, name):

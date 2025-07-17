@@ -1,5 +1,5 @@
 
-import ezpz
+# import ezpz
 # Utilizing code snippet from https://github.com/tatsu-lab/stanford_alpaca
 import copy
 from typing import Dict, Sequence
@@ -8,9 +8,10 @@ import torch
 import transformers
 from torch.utils.data import Dataset
 import json
+import logging
 
 
-logger = ezpz.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 PROMPT_DICT = {
