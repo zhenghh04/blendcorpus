@@ -8,6 +8,7 @@ usage() {
   echo "  --num-workers  Number of workers per file (default: 1)"
   echo "  --tokenizer-type    Tokenizer type to use (default: Llama2Tokenizer)"
   echo "  --tokenizer-model Tokenizer model"
+  echo "  --seq-length    sequence length"
   echo "  --append-eod   Append end-of-document token if set (passed to Python script)"
   exit 1
 }
@@ -28,6 +29,7 @@ export TF_NUM_INTEROP_THREADS=1
 INPUT_DIR="."
 OUTPUT_DIR=""
 NUM_WORKERS=1
+SEQ_LENGTH=2048
 TOKENIZER_TYPE="Llama2Tokenizer"
 APPEND_EOD=""
 
@@ -38,7 +40,8 @@ while [[ $# -gt 0 ]]; do
     --output-dir)   OUTPUT_DIR="$2"; shift 2 ;;
     --num-workers)  NUM_WORKERS="$2"; shift 2 ;;
     --tokenizer-type)     TOKENIZER_TYPE="$2"; shift 2 ;;
-    --tokenizer-model)    TOKENIZER_MODEL="$2"; shift 2 ;; 
+    --tokenizer-model)    TOKENIZER_MODEL="$2"; shift 2 ;;
+    --seq-length)         SEQ_LENGTH="$2"; shift 2 ;;
     --append-eod) APPEND_EOD="--append-eod"; shift ;;
     -h|--help)      usage ;;
     *) echo "Unknown option: $1"; usage ;;
@@ -60,7 +63,8 @@ LOG_FILE="$OUTPUT_DIR/tokenization.log"
   echo "  OUTPUT_DIR=$OUTPUT_DIR"
   echo "  NUM_WORKERS=$NUM_WORKERS"
   echo "  TOKENIZER_TYPE=$TOKENIZER_TYPE"
-  echo "  TOKENIZER_MODEL=${TOKENIZER_MODEL:-}"
+  echo "  TOKENIZER_MODEL=${TOKENIZER_MODEL}"
+  echo "  SEQ_LENGTH=${SEQ_LENGTH}"
   echo "  APPEND_EOD=$APPEND_EOD"
   echo "-------------------------"
 } >> "$LOG_FILE"
@@ -112,7 +116,7 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   stem=${stem%.jsonl}  
   outprefix="$outdir/${stem}"
   RANK=0 WORLD_SIZE=1 preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
-    --output-prefix "$outprefix" --workers "$NUM_WORKERS" $APPEND_EOD
+    --output-prefix "$outprefix" --workers "$NUM_WORKERS" $APPEND_EOD --seq-length $SEQ_LENGTH
 done
 
 echo "Rank ${RANK}/${WORLD_SIZE} processed $(( (total + WORLD_SIZE - 1 - RANK) / WORLD_SIZE )) files."
