@@ -97,12 +97,13 @@ if [[ $RANK == 0 ]]; then
     echo "Found $total files"
 fi
 
-if [[ $total -lt 10000 ]]; then
+if [[ $total -lt 100000000 ]]; then
     for ((i=0; i<total; i++)); do
 	infile="${files[i]}"
 	filename=$(basename "$infile")
 	stem=${filename%.gz}
 	stem=${stem%.zst}
+	stem=${stem%.zstd}	
 	stem=${stem%.jsonl}
 	stem=${stem%.json}
 	relpath="${infile#"$INPUT_DIR"/}"
@@ -123,9 +124,12 @@ if [[ $total -lt 10000 ]]; then
     done
     
     files=("${filtered[@]}")
+    
+
     total=${#files[@]}
     completed=$((orig_total - total))
     if [ $RANK -eq 0 ]; then
+	printf "%s\n" "${filtered[@]}" > file-filtered.txt
 	echo "Total files: $orig_total, Completed: $completed, Remaining: $total"
     fi
 fi
@@ -139,6 +143,7 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   filename=$(basename "$infile")
   stem=${filename%.gz}
   stem=${stem%.zst}
+  stem=${stem%.zstd}
   stem=${stem%.json}
   stem=${stem%.jsonl}  
   outprefix="$outdir/${stem}"
@@ -150,4 +155,4 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   fi
 done
 
-echo "Rank ${RANK}/${WORLD_SIZE} processed $(( (total + WORLD_SIZE - 1 - RANK) / WORLD_SIZE )) files."
+#echo "Rank ${RANK}/${WORLD_SIZE} processed $(( (total + WORLD_SIZE - 1 - RANK) / WORLD_SIZE )) files."
