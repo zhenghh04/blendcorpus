@@ -22,7 +22,6 @@ from .dataset_utils import (
 from .indexed_dataset import make_dataset as make_indexed_dataset
 
 from blendcorpus.utils import PerfTrace, Profile, get_logger
-from mpi4py import MPI
 
 dlp = Profile("DATASET")
 log = get_logger(__name__, rank_zero_only=True)

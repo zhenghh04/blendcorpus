@@ -9,9 +9,10 @@ import torch
 from typing import Optional
 import logging
 import os
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
+try:
+    rank = int(os.environ['RANK'])
+except:
+    rank = 0
 
 _DLIO_PROFILER_EXIST = True
 _DFTRACER_EXIST = True

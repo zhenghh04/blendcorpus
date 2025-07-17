@@ -13,7 +13,6 @@ import torch
 # from megatron import print_rank_0
 from blendcorpus import mpu
 from blendcorpus.utils import Profile, PerfTrace, get_logger
-from mpi4py import MPI
 
 log = get_logger(__name__, rank_zero_only=True)
 
