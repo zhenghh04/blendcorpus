@@ -308,7 +308,7 @@ def main():
         output_prefix = os.path.join(args.output_dir + os.path.dirname(rel_path), os.path.basename(file_prefix))
         return output_prefix
 
-
+    all_in_ss_out_names = []
     if args.partitions == 1:
         os.makedirs(args.output_dir, exist_ok=True)
         for in_file_name in in_file_names:
