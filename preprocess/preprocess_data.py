@@ -142,7 +142,7 @@ class Partition(object):
         print("Opening", input_file_name)
         if input_file_name.endswith(".gz"):
             fin = gzip.open(input_file_name, "rt")
-        elif input_file_name.endswith(".zst"):
+        elif input_file_name.endswith(".zst") or input_file_name.endswith(".zstd"):
             # Decompress Zstandard-compressed JSONL
             fh = open(input_file_name, "rb")
             dctx = zstandard.ZstdDecompressor()
