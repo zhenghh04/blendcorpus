@@ -11,10 +11,11 @@ setup(
     entry_points={
         'console_scripts': [
             'preprocess_data=preprocess.preprocess_data:main',
+            'tokenization=preprocess.preprocess_data_parallel:main',            
             'get_meta_data=preprocess.get_meta_data:main',
         ]
     },
-    scripts=['preprocess/tokenization.sh', 'preprocess/launcher.sh'],
+    scripts=['preprocess/launcher.sh'],
     install_requires=[
         'nltk',
         'torch',

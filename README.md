@@ -14,8 +14,8 @@ pip install -e .
 ```
 ## Tokenizing dataset
 ```bash
-mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 launcher.sh \
-    tokenization.sh \
+mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 \
+    tokenization \
     --input-dir data \
     --output-dir data_Llama2Tokenizer_eod \
     --num-workers 16 \

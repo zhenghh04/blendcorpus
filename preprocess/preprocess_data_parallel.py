@@ -227,10 +227,10 @@ def get_args():
                        choices=['lazy', 'cached', 'mmap'])
 
     group = parser.add_argument_group(title='runtime')
-    group.add_argument('--workers', type=int, required=True,
+    group.add_argument('--num-workers', type=int, required=True,
                        help=('Number of worker processes to launch.'
                              'A good default for fast pre-processing '
-                             'is: (workers * partitions) = available CPU cores.'))
+                             'is: (num_workers * partitions) = available CPU cores.'))
     group.add_argument('--partitions', type=int, default=1,
                         help='Number of file partitions')
     group.add_argument('--log-interval', type=int, default=1000,
@@ -330,6 +330,8 @@ def main():
                     'sentence_split': sentence_split_file,
                     'output_prefix': output_prefix}
                 in_ss_out_names.append(file_names)
+        all_in_ss_out_names = comm.allgather(in_ss_out_names)      
+        in_ss_out_names = all_in_ss_out_names[rank::size]   
     else:
         # create .jsonl parition files
         assert(comm.size == 1)
@@ -367,8 +369,8 @@ def main():
             for idx in range(args.partitions):
                 partitioned_input_files[idx].close()
 
-    assert args.workers % args.partitions == 0
-    partition = Partition(args, args.workers//args.partitions)
+    assert args.num_workers % args.partitions == 0
+    partition = Partition(args, args.num_workers//args.partitions)
 
     # check to see if paritions with split sentences already created
     split_sentences_present = check_files_exist(in_ss_out_names, 'sentence_split', args.partitions)
