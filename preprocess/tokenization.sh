@@ -104,6 +104,7 @@ if [ $RANK -eq 0 ]; then
     echo "Total files: $orig_total, Completed: $completed, Remaining: $total"
 fi
 # Process files assigned to this rank
+
 for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   infile="${files[i]}"
   relpath="${infile#"$INPUT_DIR"/}"

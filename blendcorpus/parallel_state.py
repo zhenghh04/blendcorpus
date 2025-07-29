@@ -770,7 +770,7 @@ def is_rank_0():
     return torch.distributed.get_rank() == 0
     
 _MAX_DATA_DIM = 5
-from deepspeed.accelerator import get_accelerator
+
 
 
 def broadcast_data_in_model_parallel_group(keys, data, datatype):
@@ -796,7 +796,7 @@ def broadcast_data_in_model_parallel_group(keys, data, datatype):
 
     key_size, key_numel, total_numel = _build_key_size_numel_dictionaries(
         keys, data, group=group, rank=rank, src_rank=src_rank)
-
+    from deepspeed.accelerator import get_accelerator
     # Pack on rank zero.
     if rank == 0:
         # Check that all keys have the same data type.
