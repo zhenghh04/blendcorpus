@@ -296,7 +296,7 @@ def main():
         in_file_names = glob.glob(os.path.join(args.input_dir, "**", "*json*"), recursive=True)    
     else:
         in_file_names = [args.input_dir]
-
+    in_file_names = in_file_names[rank::size]
     def get_output_prefix(input_dir, in_file_name, output_dir):
         file_name, extension = os.path.splitext(in_file_name)
         rel_path = os.path.relpath(in_file_name, args.input_dir)
@@ -375,7 +375,6 @@ def main():
     partition = Partition(args, args.num_workers//args.partitions)
 
     # check to see if paritions with split sentences already created
-    print(in_ss_out_names)
     split_sentences_present = check_files_exist(in_ss_out_names, 'sentence_split', args.partitions)
 
     # split sentences in partition files
