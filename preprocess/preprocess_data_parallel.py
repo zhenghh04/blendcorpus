@@ -1,6 +1,8 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 """Processing large data for pretraining."""
+import os
+os.environ["PYTORCH_SHOW_CPP_STACKTRACES"] = "0"
 import argparse
 import math
 import json
@@ -27,7 +29,6 @@ except ImportError:
 from blendcorpus.tokenizer import build_tokenizer
 from blendcorpus.data import indexed_dataset
 
-os.environ["NUMEXPR_MAX_THREADS"] = "256"
 # https://stackoverflow.com/questions/33139531/preserve-empty-lines-with-nltks-punkt-tokenizer
 class CustomLanguageVars(nltk.tokenize.punkt.PunktLanguageVars):
 
@@ -292,11 +293,9 @@ def main():
 
     in_ss_out_names = []
     if os.path.isdir(args.input_dir):
-        in_file_names = glob.glob(os.path.join(args.input_dir, "*json*"))
+        in_file_names = glob.glob(os.path.join(args.input_dir, "**", "*json*"), recursive=True)    
     else:
         in_file_names = [args.input_dir]
-
-
 
     def get_output_prefix(input_dir, in_file_name, output_dir):
         file_name, extension = os.path.splitext(in_file_name)
@@ -330,8 +329,11 @@ def main():
                     'sentence_split': sentence_split_file,
                     'output_prefix': output_prefix}
                 in_ss_out_names.append(file_names)
-        all_in_ss_out_names = comm.allgather(in_ss_out_names)      
-        in_ss_out_names = all_in_ss_out_names[rank::size]   
+        all_in_ss_out_names = comm.allgather(in_ss_out_names)   
+        in_ss_out_names = [item for sublist in all_in_ss_out_names for item in sublist]
+        in_ss_out_names = in_ss_out_names[rank::size]   
+        if rank == 0:
+            print(f"Each rank will process {len(in_ss_out_names)} files")
     else:
         # create .jsonl parition files
         assert(comm.size == 1)
@@ -373,6 +375,7 @@ def main():
     partition = Partition(args, args.num_workers//args.partitions)
 
     # check to see if paritions with split sentences already created
+    print(in_ss_out_names)
     split_sentences_present = check_files_exist(in_ss_out_names, 'sentence_split', args.partitions)
 
     # split sentences in partition files
