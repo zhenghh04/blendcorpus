@@ -309,7 +309,6 @@ def main():
 
     all_in_ss_out_names = []
     if args.partitions == 1:
-        os.makedirs(args.output_dir, exist_ok=True)
         for in_file_name in in_file_names:
             file_name, extension = os.path.splitext(in_file_name)
             rel_path = os.path.relpath(in_file_name, args.input_dir)
@@ -319,8 +318,8 @@ def main():
             level = "document"
             if args.split_sentences:
                 level = "sentence"
-
             output = output_prefix + f'{args.json_keys[0]}_{level}.idx'
+            os.makedirs(os.path.dirname(output), exist_ok=True)
             if os.path.exists(output):
                 print(f"{in_file_name} already tokenized")
             else:
