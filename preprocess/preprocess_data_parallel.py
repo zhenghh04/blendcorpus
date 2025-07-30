@@ -304,7 +304,7 @@ def main():
             file_prefix = file_name[:-5]
         else:
             file_prefix = file_name
-        output_prefix = os.path.join(args.output_dir + os.path.dirname(rel_path), os.path.basename(file_prefix))
+        output_prefix = os.path.join(args.output_dir + "/" + os.path.dirname(rel_path), os.path.basename(file_prefix))
         return output_prefix
 
     all_in_ss_out_names = []
