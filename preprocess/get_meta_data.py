@@ -5,16 +5,17 @@ import numpy as np
 import glob
 import argparse
 import os
+from tqdm import tqdm
 data_impl = 'infer'
 skip_warmup = False
 
-def process_list_chunk(my_file_chunk):
+def process_list_chunk(my_file_chunk, verbose=0):
     all_data = []
+    if verbose == 1:
+        my_file_chunk  = tqdm(my_file_chunk)
     for data_prefix in my_file_chunk:
         # Indexed dataset.
-        print(data_prefix)
         indexed_dataset = get_indexed_dataset_(data_prefix,data_impl,skip_warmup)
-        print(indexed_dataset)
         total_num_of_documents = indexed_dataset.sizes.shape[0]
         total_num_of_tokens = np.sum(indexed_dataset.sizes)
         
@@ -38,10 +39,12 @@ def main():
     # Recursively find all .bin files under the input directory
     my_file = [f[:-4] for f in glob.glob(os.path.join(args.input_dir, "**", "*.idx"), recursive=True)]
     if rank == 0:
-        print(f"Found {len(my_file)} files")
-    meta_data = process_list_chunk(my_file[rank::size])
+        print(f"Found {len(my_file)} files; each rank will process {len(my_file)//size}")
+    meta_data = process_list_chunk(my_file[rank::size], rank == 0)
+    comm.Barrier()    
+    if rank == 0:
+        print("Gathering all the meta data info from all the ranks...")
     meta_data = comm.gather(meta_data, root=0)
-    comm.Barrier()
     if rank == 0:
         meta_data = [item for sublist in meta_data for item in sublist]
         json_file_path = args.output
