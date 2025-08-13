@@ -302,6 +302,8 @@ def main():
         rel_path = os.path.relpath(in_file_name, args.input_dir)
         if file_name.endswith(".json"):
             file_prefix = file_name[:-5]
+        if file_name.endswith(".jsonl"):
+            file_prefix = file_name[:-6]            
         else:
             file_prefix = file_name
         output_prefix = os.path.join(args.output_dir + "/" + os.path.dirname(rel_path), os.path.basename(file_prefix))
