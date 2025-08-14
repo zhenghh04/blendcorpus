@@ -15,7 +15,7 @@ setup(
             'get_meta_data=preprocess.get_meta_data:main',
         ]
     },
-    scripts=['preprocess/launcher.sh'],
+    scripts=['preprocess/launcher.sh', 'preprocess/tokenization/tokenization.sh'],
     install_requires=[
         'nltk',
         'torch',

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export DS_ACCELERATOR=cpu
 
 usage() {
   echo "Usage: $0 [--input-dir DIR] [--output-dir DIR] [--num-workers N] [--tokenizer TYPE]"
