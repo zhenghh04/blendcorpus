@@ -12,6 +12,14 @@ git clone https://github.com/blendcorpus.git
 cd blendcorpus
 pip install -e .
 ```
+## Fusing small files
+Fusing small files is important because it reduces the index-building overhead in Megatron-DeepSpeed and helps avoid rounding errors that can occur when processing very small files. By combining these files, we can improve efficiency and stability during training or data preprocessing.
+```bash
+export PPN=16
+export THREADS_PER_RANK=4
+mpiexec -np $((PBS_JOBSIZE*PPN)) --ppn $PPN --cpu-bind depth -d $THREADS_PER_RANK launcher.sh ./fuse_files_parallel.sh
+```
+
 ## Tokenizing dataset
 ```bash
 mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 \
