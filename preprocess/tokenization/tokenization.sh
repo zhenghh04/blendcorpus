@@ -138,7 +138,9 @@ if [[ $total -lt 100000000 ]]; then
 fi
 filtered=files
 # Process files assigned to this rank
-
+if [[ $RANK == 0 ]]; then
+    echo "[`date`] Started tokenizing $total files" >> "$LOG_FILE"
+fi
 for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   infile="${files[i]}"
   relpath="${infile#"$INPUT_DIR"/}"
@@ -159,3 +161,6 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   fi
 done
 barrier.sh
+if [[ $RANK == 0 ]]; then
+    echo "[`date`] Done tokenizing $total files" >> "$LOG_FILE"
+fi
