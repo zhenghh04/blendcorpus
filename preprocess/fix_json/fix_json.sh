@@ -1,19 +1,25 @@
 #!/bin/bash
-mapfile -t files < fault.txt
+
 # Default output directory
 OUTDIR="json_fused_fix"
-# Parse arguments for --output_dir
+FILELIST="fault.txt"
+# Parse arguments for --out-dir
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --output_dir)
-      OUTDIR="$2"
-      shift 2
-      ;;
-    *)
-      shift
-      ;;
-  esac
+    case "$1" in
+	--output-dir)
+	    OUTDIR="$2"
+	    shift 2
+	    ;;
+	--filelist)
+	    FILELIST="$2"
+	    shift 2
+	    ;;
+	*)
+	    shift
+	    ;;
+    esac
 done
+mapfile -t files < $FILELIST
 mkdir -p "$OUTDIR"
 for ((i=$RANK; i<${#files[@]}; i+=$WORLD_SIZE)); do
   f=${files[$i]}

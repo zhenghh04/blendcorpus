@@ -9,3 +9,6 @@ python validate_json.py $(cat files.txt) --output fault.txt
 ```
 
 ## Fix the files
+```bash
+mpiexec -np $PBS_JOBSIZE --ppn 1 --cpu-bind depth -d 64 launcher.sh bash ./fix_json.sh --output-dir fused_json_fix --filelist fault.txt
+```
