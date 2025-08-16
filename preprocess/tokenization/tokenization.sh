@@ -59,18 +59,20 @@ fi
 # Create output directory and initialize log file
 mkdir -p "$OUTPUT_DIR"
 LOG_FILE="$OUTPUT_DIR/tokenization.log"
-{
-  echo "Date: $(date)"
-  echo "Arguments:"
-  echo "  INPUT_DIR=$INPUT_DIR"
-  echo "  OUTPUT_DIR=$OUTPUT_DIR"
-  echo "  NUM_WORKERS=$NUM_WORKERS"
-  echo "  TOKENIZER_TYPE=$TOKENIZER_TYPE"
-  echo "  TOKENIZER_MODEL=${TOKENIZER_MODEL}"
-  echo "  SEQ_LENGTH=${SEQ_LENGTH}"
-  echo "  APPEND_EOD=$APPEND_EOD"
-  echo "-------------------------"
-} >> "$LOG_FILE"
+if [[ $RANK == 0 ]]; then
+    {
+	echo "Date: $(date)"
+	echo "Arguments:"
+	echo "  INPUT_DIR=$INPUT_DIR"
+	echo "  OUTPUT_DIR=$OUTPUT_DIR"
+	echo "  NUM_WORKERS=$NUM_WORKERS"
+	echo "  TOKENIZER_TYPE=$TOKENIZER_TYPE"
+	echo "  TOKENIZER_MODEL=${TOKENIZER_MODEL}"
+	echo "  SEQ_LENGTH=${SEQ_LENGTH}"
+	echo "  APPEND_EOD=$APPEND_EOD"
+	echo "-------------------------"
+    } >> "$LOG_FILE"
+fi
 
 # MPI-based distribution
 if [[ -z "${RANK:-}" || -z "${WORLD_SIZE:-}" ]]; then
