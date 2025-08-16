@@ -13,6 +13,7 @@ setup(
             'preprocess_data=preprocess.preprocess_data:main',
             'tokenization=preprocess.preprocess_data_parallel:main',            
             'get_meta_data=preprocess.get_meta_data:main',
+            'test_dataloader=tests.test_dataloader:main'
         ]
     },
     scripts=['utils/launcher.sh', 'preprocess/tokenization/tokenization.sh', 'utils/barrier.sh'],
