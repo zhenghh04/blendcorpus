@@ -174,6 +174,6 @@ def main():
 
 # Entrypoint for script execution
 if __name__ == "__main__":
-    from torch_setup import init_distributed
+    from blendcorpus import init_distributed
     init_distributed()
     main()
