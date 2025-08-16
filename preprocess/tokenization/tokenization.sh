@@ -158,5 +158,4 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
 	  --output-prefix "$outprefix" --workers "$NUM_WORKERS" $APPEND_EOD --seq-length $SEQ_LENGTH
   fi
 done
-
-#echo "Rank ${RANK}/${WORLD_SIZE} processed $(( (total + WORLD_SIZE - 1 - RANK) / WORLD_SIZE )) files."
+barrier.sh
