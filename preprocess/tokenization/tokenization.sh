@@ -83,7 +83,7 @@ fi
 # Gather all .gz and .zst files
 #mapfile -t files < file-list-$PBS_JOBID.txt
 if [[ $FILE_LIST == "" ]]; then
-    mapfile -t files < <(find -L "$INPUT_DIR" -type f \( -name '*.gz' -o -name '*.zst' -o -name '*.zstd' -o -name '*.json' -o -name '*.jsonl' \))
+    mapfile -t files < <(find -L "$INPUT_DIR" -type f \( -name '*.gz' -o -name '*.zst' -o -name '*.zstd' -o -name '*.json' -o -name '*.jsonl' -o -name '*.parquet' \))
 else
     if [[ $RANK == 0 ]]; then
 	echo "Reading files from $FILE_LIST"
@@ -109,6 +109,7 @@ if [[ $total -lt 100000000 ]]; then
 	stem=${stem%.zstd}	
 	stem=${stem%.jsonl}
 	stem=${stem%.json}
+    stem=${stem%.parquet}
 	relpath="${infile#"$INPUT_DIR"/}"
 	outidx="$OUTPUT_DIR/$(dirname "$relpath")/${stem}_text_document.idx"
 	if [[ ! -f "$outidx" ]]; then
@@ -156,7 +157,7 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   if [[ -e ${outprefix}_text_document.idx ]]; then
       echo "${infile} already tokenized"
   else
-      RANK=0 WORLD_SIZE=1 preprocess_data --input "$infile" --json-keys text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
+      RANK=0 WORLD_SIZE=1 preprocess_data --input "$infile" --json-keys text --text-column text --tokenizer-type "$TOKENIZER_TYPE" --tokenizer-model "$TOKENIZER_MODEL" \
 	  --output-prefix "$outprefix" --workers "$NUM_WORKERS" $APPEND_EOD --seq-length $SEQ_LENGTH
   fi
 done

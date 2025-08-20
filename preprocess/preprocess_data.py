@@ -101,6 +101,28 @@ class Encoder(object):
             lens[key] = sentence_lens
         return ids, lens, len(json_line)
 
+
+# ----------------------------- Parquet streaming helper -----------------------------
+
+def iter_parquet_as_json_lines(input_path: str, text_column: str, batch_size: int, json_key: str):
+    """
+    Stream a Parquet file/dir/glob as JSON lines compatible with Encoder.encode(),
+    i.e., each yielded item is a JSON string: {json_key: text}.
+    """
+    import pyarrow.dataset as ds
+
+    dataset = ds.dataset(input_path, format="parquet")  # file / dir / glob ok
+    # Only project the text column to minimize IO and memory
+    scanner = dataset.scanner(columns=[text_column], batch_size=batch_size)
+
+    for rb in scanner.to_batches():
+        col = rb.column(0)
+        texts = col.to_pylist()
+        for t in texts:
+            if t is None:
+                continue
+            yield json.dumps({json_key: t})
+
 import os
 class Partition(object):
     def __init__(self, args, workers):
@@ -140,16 +162,28 @@ class Partition(object):
     def process_json_file(self, file_name):
         input_file_name, output_prefix = file_name
         print("Opening", input_file_name)
-        if input_file_name.endswith(".gz"):
-            fin = gzip.open(input_file_name, "rt")
-        elif input_file_name.endswith(".zst") or input_file_name.endswith(".zstd"):
-            # Decompress Zstandard-compressed JSONL
-            fh = open(input_file_name, "rb")
-            dctx = zstandard.ZstdDecompressor()
-            stream = dctx.stream_reader(fh)
-            fin = io.TextIOWrapper(stream, encoding='utf-8')
+
+        # Detect parquet inputs and create an iterator of JSON strings compatible with Encoder.encode
+        is_parquet = input_file_name.endswith(".parquet") or input_file_name.endswith(".pq")
+        if is_parquet:
+            # Stream parquet rows as JSON lines with the first json_key
+            fin = iter_parquet_as_json_lines(
+                input_path=input_file_name,
+                text_column=getattr(self.args, "text_column", "text"),
+                batch_size=getattr(self.args, "parquet_batch_size", 8192),
+                json_key=self.args.json_keys[0],
+            )
         else:
-            fin = open(input_file_name, 'r', encoding='utf-8')
+            if input_file_name.endswith(".gz"):
+                fin = gzip.open(input_file_name, "rt")
+            elif input_file_name.endswith(".zst") or input_file_name.endswith(".zstd"):
+                # Decompress Zstandard-compressed JSONL
+                fh = open(input_file_name, "rb")
+                dctx = zstandard.ZstdDecompressor()
+                stream = dctx.stream_reader(fh)
+                fin = io.TextIOWrapper(stream, encoding='utf-8')
+            else:
+                fin = open(input_file_name, 'r', encoding='utf-8')
 
         startup_start = time.time()
         encoder = Encoder(self.args)
@@ -157,8 +191,9 @@ class Partition(object):
         pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
         encoded_docs = pool.imap(encoder.encode, fin, 32)
 
+        # For parquet, we do not support sentence splitting here; keep level as 'document'.
         level = "document"
-        if self.args.split_sentences:
+        if self.args.split_sentences and not is_parquet:
             level = "sentence"
 
         output_bin_files = {}
@@ -166,13 +201,12 @@ class Partition(object):
         builders = {}
 
         for key in self.args.json_keys:
-            output_bin_files[key] = "{}_{}_{}.bin".format(output_prefix,
-                                                          key, level)
-            output_idx_files[key] = "{}_{}_{}.idx".format(output_prefix,
-                                                          key, level)
-            builders[key] = indexed_dataset.make_builder(output_bin_files[key],
-                                                   impl=self.args.dataset_impl,
-                                                   vocab_size=tokenizer.vocab_size)
+            output_bin_files[key] = f"{output_prefix}_{key}_{level}.bin"
+            output_idx_files[key] = f"{output_prefix}_{key}_{level}.idx"
+            builders[key] = indexed_dataset.make_builder(
+                output_bin_files[key],
+                impl=self.args.dataset_impl,
+                vocab_size=tokenizer.vocab_size)
 
         startup_end = time.time()
         proc_start = time.time()
@@ -184,8 +218,16 @@ class Partition(object):
                 builders[key].add_doc(doc[key], sentence_lens[key])
             self.print_processing_stats(i, proc_start, total_bytes_processed)
 
-        fin.close()
-        builders[key].finalize(output_idx_files[key])
+        # Close file handle if it is a real file object (JSONL path)
+        try:
+            if not is_parquet and hasattr(fin, 'close'):
+                fin.close()
+        except Exception:
+            pass
+
+        # Finalize all builders (fixes single-key finalize bug)
+        for key in builders.keys():
+            builders[key].finalize(output_idx_files[key])
 
 
 def get_args():
@@ -195,6 +237,10 @@ def get_args():
                        help='Path to input JSON')
     group.add_argument('--json-keys', nargs='+', default=['text'],
                        help='space separate listed of keys to extract from json')
+    group.add_argument('--text-column', type=str, default='text',
+                       help='Name of the text column in Parquet (ignored for jsonl).')
+    group.add_argument('--parquet-batch-size', type=int, default=8192,
+                       help='Rows per batch when scanning Parquet files.')
     group.add_argument('--split-sentences', action='store_true',
                        help='Split documents into sentences.')
     group.add_argument('--keep-newlines', action='store_true',

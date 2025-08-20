@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import os
+os.environ['DS_ACCELERATOR']="cpu"
 import torch
 import time
 import json
@@ -78,12 +80,17 @@ def main():
         parser.add_argument("--repeated-dataloader", dest="repeated_dataloader",
                             action="store_true",
                             help="Wrap DataLoader in RepeatingLoader if set")
+        parser.add_argument('--blend-sample-in-corpus', action="store_true", help="whether to blend samples in corpus")
+        parser.add_argument('--shuffle-sample-in-corpus', action="store_true", help="whether to shuffle samples in corpus")
+        parser.add_argument('--print-sample-info', action='store_true')
+        parser.add_argument('--dataloader-iter', action='store_true')
         return parser.parse_args()
 
     args = get_args()
     set_config(args)
     config = get_config()
-    print(config)
+    if comm.rank == 0:
+        print(config)
     os.makedirs(args.trace_dir, exist_ok=True)
     # Build datasets
     start_build_dataset = time.time()
@@ -99,14 +106,13 @@ def main():
         # index within the corpus dataset
         cds = blendable_dataset.dataset_sample_index[idx]
         # dataset index within each corpus
-        fcd = blendable_dataset.datasets[cd].dataset_index[cds]
+        shuffle_idx = blendable_dataset.datasets[cd].shuffle_index[cds]
+        fcd = blendable_dataset.datasets[cd].dataset_index[shuffle_idx]
         # sample index within the dataset
-        fcds = blendable_dataset.datasets[cd].dataset_sample_index[cds]
+        fcds = blendable_dataset.datasets[cd].dataset_sample_index[shuffle_idx]
         # corresponding data file
         prefix = blendable_dataset.datasets[cd].dataset_builders[fcd].prefix
         corpus = blendable_dataset.datasets[cd].dataset_builders[fcd].corpus
-        #v = blendable_dataset[idx]['text']
-        #norm = np.linalg.norm(v)
         return prefix, corpus, fcds
 
     #-------
@@ -125,17 +131,18 @@ def main():
             if c not in corpus_all:
                 corpus_all.append(c)
     # ---- 
-    fout = open("samples_list.jsonl", "w")
-    if comm.rank == 0:
-        for i in range(args.train_iters):
-            ns_corpus = {}
-            for c in corpus_all:
-                ns_corpus[c] = 0
-            for j in range(args.global_batch_size):
-                prefix, corpus, idx = get_sample_info(train_ds, i*args.global_batch_size+j)
-                ns_corpus[corpus] +=1
-                fout.write(f"\u007b 'batch': {i}, 'sample': {j}, 'corpus': '{corpus}', 'prefix': '{prefix}', 'dataset_sample_index': {idx} \u007d\n")
-            fout.write(f"\u007b 'batch': {i}, 'histogram': {ns_corpus} \u007d \n")
+    if args.print_sample_info:
+        if comm.rank == 0:
+            fout = open("samples_list.jsonl", "w")        
+            for i in range(args.train_iters):
+                ns_corpus = {}
+                for c in corpus_all:
+                    ns_corpus[c] = 0
+                for j in range(args.global_batch_size):
+                    prefix, corpus, idx = get_sample_info(train_ds, i*args.global_batch_size+j)
+                    ns_corpus[corpus] +=1
+                    fout.write(f"\u007b 'batch': {i}, 'sample': {j}, 'corpus': '{corpus}', 'prefix': '{prefix}', 'dataset_sample_index': {idx} \u007d\n")
+                fout.write(f"\u007b 'batch': {i}, 'histogram': {ns_corpus} \u007d \n")
 
     comm.Barrier()        
     start_build_dataloader = time.time()
@@ -159,17 +166,18 @@ def main():
     def compute(ct):
         time.sleep(ct)
     n=0
-    start_time = time.time()
-    for i in iter(train_dataloader):
-        print(f"[{comm.rank}] DATA {i}")
-        n+=1
-        if (n%NUM_ITEMS==0):
-            print_rank_0(f"Proccessed {n}th-batch in {time.time() - start_time}")
-        if n>=1000:
-            break
+    if args.dataloader_iter:
         start_time = time.time()
-    end_loading_time = time.time()
-    print_rank_0(f"Finished loading the data ({n} batches) in {end_loading_time - start_loading_time}")
+        for i in iter(train_dataloader):
+            print(f"[{comm.rank}] DATA {i}")
+            n+=1
+            if (n%NUM_ITEMS==0):
+                print_rank_0(f"Proccessed {n}th-batch in {time.time() - start_time}")
+            if n>=1000:
+                break
+            start_time = time.time()
+        end_loading_time = time.time()
+        print_rank_0(f"Finished loading the data ({n} batches) in {end_loading_time - start_loading_time}")
 
 
 # Entrypoint for script execution
