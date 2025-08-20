@@ -109,7 +109,7 @@ if [[ $total -lt 100000000 ]]; then
 	stem=${stem%.zstd}	
 	stem=${stem%.jsonl}
 	stem=${stem%.json}
-    stem=${stem%.parquet}
+	stem=${stem%.parquet}
 	relpath="${infile#"$INPUT_DIR"/}"
 	outidx="$OUTPUT_DIR/$(dirname "$relpath")/${stem}_text_document.idx"
 	if [[ ! -f "$outidx" ]]; then
@@ -152,7 +152,8 @@ for (( i=$RANK; i<$total; i+=$WORLD_SIZE )); do
   stem=${stem%.zst}
   stem=${stem%.zstd}
   stem=${stem%.json}
-  stem=${stem%.jsonl}  
+  stem=${stem%.jsonl}
+  stem=${stem%.parquet}
   outprefix="$outdir/${stem}"
   if [[ -e ${outprefix}_text_document.idx ]]; then
       echo "${infile} already tokenized"
