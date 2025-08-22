@@ -89,15 +89,19 @@ def init_distributed(backend=None):
     if backend == None:
         gpu = get_device_type()
         if gpu == "xpu":
-            backend = "ccl"
+            try:
+                import oneccl_bindings_for_pytorch
+                backend = "ccl"
+            except:
+                backend = "xccl"
         elif gpu == "cuda":
             backend = "nccl"
         else:
             backend = "gloo"
 
-    if backend == "ccl":
-        import intel_extension_for_pytorch
-        import oneccl_bindings_for_pytorch
+    #if backend == "ccl":
+        #import intel_extension_for_pytorch
+     #   import oneccl_bindings_for_pytorch
 
     rank = comm.rank
     world_size = comm.size
