@@ -24,7 +24,9 @@ except ImportError:
 
 from blendcorpus.tokenizer import build_tokenizer
 from blendcorpus.data import indexed_dataset
+from blendcorpus.utils import PerfTrace, Profile
 
+dlp = Profile("PREPROCESS")
 
 # https://stackoverflow.com/questions/33139531/preserve-empty-lines-with-nltks-punkt-tokenizer
 class CustomLanguageVars(nltk.tokenize.punkt.PunktLanguageVars):
@@ -48,6 +50,7 @@ class Encoder(object):
     def __init__(self, args):
         self.args = args
 
+    @dlp.log
     def initializer(self):
         # Use Encoder class as a container for global data
         Encoder.tokenizer = build_tokenizer(self.args)
@@ -67,7 +70,7 @@ class Encoder(object):
 
         else:
             Encoder.splitter = IdentitySplitter()
-
+    @dlp.log
     def split(self, json_line):
         data = json.loads(json_line)
         output = {}
@@ -78,6 +81,7 @@ class Encoder(object):
             output[key] = [tokens for partial in tokens_list for tokens in partial]
         return json.dumps(output), len(json_line)
 
+    @dlp.log
     def encode(self, json_line):
         data = json.loads(json_line)
         ids = {}
@@ -104,6 +108,7 @@ class Encoder(object):
 
 # ----------------------------- Parquet streaming helper -----------------------------
 
+@dlp.log
 def iter_parquet_as_json_lines(input_path: str, text_column: str, batch_size: int, json_key: str):
     """
     Stream a Parquet file/dir/glob as JSON lines compatible with Encoder.encode(),
@@ -128,7 +133,7 @@ class Partition(object):
     def __init__(self, args, workers):
         self.args = args
         self.workers = workers
-
+    
     def print_processing_stats(self, count, proc_start, total_bytes_processed):
         if count % self.args.log_interval == 0:
             current = time.time()
@@ -137,7 +142,7 @@ class Partition(object):
             print(f"Thread {os.getpid()}: Processed {count} documents",
                   f"({count/elapsed} docs/s, {mbs} MB/s).",
                   file=sys.stderr)
-
+    @dlp.log
     def split_sentences(self, file_name):
         input_file_name, output_file_name = file_name
         print("Opening", input_file_name)
@@ -158,7 +163,7 @@ class Partition(object):
         fin.close()
         fout.close()
 
-
+    @dlp.log
     def process_json_file(self, file_name):
         input_file_name, output_prefix = file_name
         print("Opening", input_file_name)
@@ -323,7 +328,8 @@ def check_files_exist(in_ss_out_names, key, num_partitions):
 
 def main():
     args = get_args()
-
+    
+    PerfTrace.initialize_log(logfile=args.input+".pfw", data_dir=os.path.dirname(args.input), process_id = 0)
     if args.split_sentences:
         if nltk_available:
             nltk.download("punkt", quiet=True)

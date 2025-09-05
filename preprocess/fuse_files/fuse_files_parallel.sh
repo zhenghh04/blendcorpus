@@ -12,6 +12,12 @@ WORLD_SIZE="${WORLD_SIZE:-1}"
 
 mkdir -p "$OUT"
 
+print_rank_0() {
+    if [[ $RANK == 0 ]]; then
+	echo $1
+    fi
+}
+
 export OMP_NUM_THREADS=1
 nice -n 5 ionice -c2 -n5 true 2>/dev/null || true
 
@@ -23,11 +29,13 @@ decompress_stream() {
   local last_char=""
   while IFS= read -r f; do
     case "$f" in
-      *.jsonl.zstd) cmd=(zstdcat "$f") ;;
-      *.json.gz)
-        if command -v pigz >/dev/null 2>&1; then cmd=(pigz -dc "$f"); else cmd=(gzip -dc "$f"); fi
-        ;;
-      *) echo "Unknown format: $f" >&2; exit 2 ;;
+	*.jsonl.zstd|*.json.zstd|*.json.zst|*.jsonl.szt)
+	    cmd=(zstdcat "$f") ;;
+	*.json.gz|*.jsonl.gz)
+            if command -v pigz >/dev/null 2>&1; then cmd=(pigz -dc "$f"); else cmd=(gzip -dc "$f"); fi
+            ;;
+	*.json|*.jsonl) cmd=(cat "$f") ;;
+	*) echo "Unknown format: $f" >&2; exit 2 ;;
     esac
 
     # Only add a separator if not first and prior file didn't end with a newline
@@ -63,16 +71,28 @@ make_groups_file() {
 }
 
 process_all_subfolders_distributed() {
-  # Build groups PER SUBFOLDER, then distribute all groups (from all subfolders)
-  # evenly across ranks. Each fused output stays within its original subfolder.
-  local global_out="$OUT/_global"
-  mkdir -p "$global_out"
+    # Build groups PER SUBFOLDER, then distribute all groups (from all subfolders)
+    # evenly across ranks. Each fused output stays within its original subfolder.
+    local global_out="$OUT/_global"
+    mkdir -p $OUT/dummy/
+    touch $OUT/dummy/completed_0.txt
+    COMPLETE_ALL=$OUT/_global/completed.txt
+    mkdir -p "$global_out"    
+    barrier.sh
+    if [[ $RANK == 0 ]]; then
+	rm -f $OUT/_global/completed.txt
+	touch $OUT/_global/completed.txt
+	cat $OUT/*/completed_*.txt >& $COMPLETE_ALL
+	cat $COMPLETE_ALL
+    fi
+    barrier.sh
   local master_groups="$global_out/groups_all.tsv"
   : > "$master_groups"
 
   # Enumerate immediate subfolders under $ROOT
   mapfile -t SUBS < <(find "$ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%P\n' | sort -V)
-  echo "[rank $RANK/$WORLD_SIZE] Found ${#SUBS[@]} subfolders under '$ROOT'"
+  print_rank_0 "[rank $RANK/$WORLD_SIZE] Found ${#SUBS[@]} subfolders under '$ROOT'"
+
 
   # Build per-subfolder groups and append to master list as: subfolder<TAB>local_idx<TAB>local_count<TAB>files...
   for sub in "${SUBS[@]}"; do
@@ -81,58 +101,87 @@ process_all_subfolders_distributed() {
     mkdir -p "$outdir"
 
     local tsv="$outdir/files_and_sizes.tsv"
-    find "$subdir" -type f \( -name '*.jsonl.zstd' -o -name '*.json.gz' \) \
+    find "$subdir" -type f \( -name '*.jsonl.zstd' -o -name '*.json.gz' -o -name "*.parquet" -o -name '*.json*' \) \
         -printf '%p\t%s\n' | sort -V > "$tsv"
     if [[ ! -s "$tsv" ]]; then
-      echo "  [rank $RANK] $sub: no matching files"; continue
+	print_rank_0 "  [rank $RANK] $sub: no matching files"; continue
     fi
 
     local groups="$outdir/groups.txt"
-    make_groups_file "$tsv" > "$groups"
-    sed -i '/^$/d' "$groups" || true
-    if [[ ! -s "$groups" ]]; then
-      echo "  [rank $RANK] $sub: no non-empty groups"; continue
-    fi
+    if [[ $RANK == 0 ]]; then
+	# only rank zero write the files
+	make_groups_file "$tsv" > "$groups"
+	sed -i '/^$/d' "$groups" || true
+	if [[ ! -s "$groups" ]]; then
+	    echo "  [rank $RANK] $sub: no non-empty groups"; continue
+	fi
 
+    
     local NG_SUB; NG_SUB=$(wc -l < "$groups" | tr -d '[:space:]')
     local idx=0
     while IFS= read -r line; do
-      [[ -z "$line" ]] && continue
-      idx=$((idx+1))
-      printf '%s\t%d\t%d\t%s\n' "$sub" "$idx" "$NG_SUB" "$line" >> "$master_groups"
+	[[ -z "$line" ]] && continue
+	idx=$((idx+1))
+	printf '%s\t%d\t%d\t%s\n' "$sub" "$idx" "$NG_SUB" "$line" >> "$master_groups"
     done < "$groups"
+    fi    
   done
-
+  barrier.sh
   if [[ ! -s "$master_groups" ]]; then
     echo "[rank $RANK] global: no groups built; nothing to do."; return
   fi
 
   local NGROUPS; NGROUPS=$(wc -l < "$master_groups" | tr -d '[:space:]')
-  echo "[rank $RANK] global: total groups across subfolders = $NGROUPS"
+  print_rank_0 "[rank $RANK] global: total groups across subfolders = $NGROUPS"
 
   # Contiguous block assignment across all groups
-  local per_rank=$(( (NGROUPS + WORLD_SIZE - 1) / WORLD_SIZE ))
-  local start=$(( RANK*per_rank + 1 ))
-  local end=$(( start + per_rank - 1 ))
-  if (( end > NGROUPS )); then end=$NGROUPS; fi
-  if (( start > NGROUPS )); then
-    echo "  [rank $RANK] global: no assigned groups (start>$NGROUPS)"; return
-  fi
-  echo "[rank $RANK] global: assigned groups $start..$end"
+  #local per_rank=$(( (NGROUPS + WORLD_SIZE - 1) / WORLD_SIZE ))
+  #local start=$(( RANK*per_rank + 1 ))
+  #local end=$(( start + per_rank - 1 ))
+  #if (( end > NGROUPS )); then end=$NGROUPS; fi
+  #if (( start > NGROUPS )); then
+  #  echo "  [rank $RANK] global: no assigned groups (start>$NGROUPS)"; return
+  #fi
+  #echo "[rank $RANK] global: assigned groups $start..$end"
 
   # Process only this rank's slice
   local i=0
   while IFS=$'\t' read -r sub idx ng_sub files; do
-    i=$((i+1))
-    if (( i < start || i > end )); then continue; fi
-
+      i=$((i+1))      
+      if (( (i-1) % WORLD_SIZE != RANK )); then
+	  continue
+      else
+	  echo "[RANK-$RANK] processing $i"
+      fi
     local outdir="$OUT/$sub"
     mkdir -p "$outdir"
     local completed="$outdir/completed_$RANK.txt"
     touch "$completed"
+    # Get extension from first file in group
+    local firstfile
+    local tmplist; tmplist="$(mktemp)"
+    tr ' ' '\n' <<< "$files" | sed '/^$/d' > "$tmplist"
+    
+    firstfile=$(awk 'NR==1{print; exit}' "$tmplist")
+    local ext
+    echo $firstfile
+    case "$firstfile" in
+	*.jsonl.zst|*.jsonl.zstd) ext="jsonl.zstd" ;;
+	*.json.zst|*.json.zstd) ext="json.zstd" ;;
+	*.json) ext="json";;
+	*.jsonl) ext="jsonl";;	
+	*.json.gz) ext="json.gz" ;;
+	*.jsonl.gz) ext="jsonl.gz" ;;	
+	*.parquet) ext="parquet" ;;
+	*) echo "  [rank $RANK] ERROR: unknown file extension for $firstfile"; exit 1 ;;
+    esac
 
-    local outfile; outfile=$(printf "%s/fused_%04d_of_%04d.jsonl.zstd" "$outdir" "$idx" "$ng_sub")
-    if grep -Fxq "$outfile" "$completed"; then
+    # Set outfile accordingly
+    local outfile
+    outfile=$(printf "%s/fused_%04d_of_%04d.%s" "$outdir" "$idx" "$ng_sub" "$ext")
+
+    #local outfile; outfile=$(printf "%s/fused_%04d_of_%04d.jsonl.zstd" "$outdir" "$idx" "$ng_sub")
+    if grep -Fxq "$outfile" "$COMPLETE_ALL"; then
       echo "  [rank $RANK] $sub: exists, skip $(basename "$outfile")"
       continue
     fi
@@ -145,12 +194,20 @@ process_all_subfolders_distributed() {
     if [[ ! -s "$tmplist" ]]; then
       echo "  (empty group, skipping)"; rm -f "$tmplist"; continue
     fi
-    decompress_stream < "$tmplist" \
-      | zstd -q -f -T"$THREADS_PER_RANK" "$ZSTD_LEVEL" -o "$outfile"
+    case "$outfile" in
+	*.json*)
+	    decompress_stream < "$tmplist" \
+		| zstd -q -f -T"$THREADS_PER_RANK" "$ZSTD_LEVEL" -o "$outfile"
+	    ;;
+	*.parquet)
+	    merge_parquet "$tmplist" --output "$outfile"
+	    ;;
+	*) echo "Unknown format: $outfile" >&2; exit 2 ;;	
+    esac    
     rm -f "$tmplist"
-
     echo "$outfile" >> "$completed"
   done < "$master_groups"
+  barrier.sh
 }
 
 process_all_global() {
@@ -324,5 +381,5 @@ if [[ $num_subfolders == 0 ]]; then
 else
   process_all_subfolders_distributed
 fi
-
+barrier.sh
 echo "[rank $RANK] done."

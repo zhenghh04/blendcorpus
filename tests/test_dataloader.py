@@ -85,12 +85,19 @@ def main():
         parser.add_argument('--print-sample-info', action='store_true')
         parser.add_argument('--dataloader-iter', action='store_true')
         return parser.parse_args()
-
+    
     args = get_args()
     set_config(args)
     config = get_config()
     if comm.rank == 0:
         print(config)
+    dlp_trace_file = f"{args.trace_dir}/trace-{comm.rank}-of-{comm.size}.pfw"
+    with open(args.data_file_list, 'r') as fin:
+        w, fname, c = fin.readline().split()
+        filesystem = fname.split("/")[1]
+
+    PerfTrace.initialize_log(logfile=dlp_trace_file, data_dir=f"/{filesystem}", process_id = comm.rank)
+    
     os.makedirs(args.trace_dir, exist_ok=True)
     # Build datasets
     start_build_dataset = time.time()
