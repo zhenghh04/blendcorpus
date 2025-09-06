@@ -17,7 +17,7 @@ setup(
             'merge_parquet=preprocess.fuse_files.merge_parquet:main'
         ]
     },
-    scripts=['utils/launcher.sh', 'preprocess/tokenization/tokenization.sh', 'utils/barrier.sh'],
+    scripts=['utils/launcher.sh', 'preprocess/tokenization/tokenization.sh', 'utils/barrier.sh', 'utils/download-huggingface-dataset.sh'],
     install_requires=[
         'nltk',
         'torch',
