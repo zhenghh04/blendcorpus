@@ -77,6 +77,11 @@ gen-file-list --input-json data-fused-tok.json
 You can specify the epochs for different corpora.
 
 
+## Known Issues
+* Incomplete dataset download
+* Incomplete file fusion - resubmit the jobs
+* Incomplete tokenization - resubmit the jobs
+
 ## Using the Dataset and Dataloader
 ```python
 from blendcorpus import (

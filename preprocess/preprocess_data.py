@@ -329,7 +329,7 @@ def check_files_exist(in_ss_out_names, key, num_partitions):
 def main():
     args = get_args()
     
-    PerfTrace.initialize_log(logfile=args.input+".pfw", data_dir=os.path.dirname(args.input), process_id = 0)
+    dftracer = PerfTrace.initialize_log(logfile=args.input+".pfw", data_dir=os.path.dirname(args.input), process_id = 0)
     if args.split_sentences:
         if nltk_available:
             nltk.download("punkt", quiet=True)
@@ -445,7 +445,7 @@ def main():
                                                              key, level)
             builders[key].merge_file_(full_partition_output_prefix)
         builders[key].finalize(output_idx_files[key])
-
+    dftracer.finaize()
 
 if __name__ == '__main__':
     main()
