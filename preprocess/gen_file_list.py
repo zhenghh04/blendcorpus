@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# Argonne National Laboratory, 2025. All rights reserved.
+# Usage: python gen_file_list.py --input-json data_fused_gemma_eod.json --output olmo-fused-file-list.txt --topdir /flare/AuroraGPT/datasets/olmo-mix-1124/ --epochs 1 1 1
+
 import argparse
 import json
 import pandas as pd

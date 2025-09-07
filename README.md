@@ -1,10 +1,10 @@
-# LLM data pipeline
+# LLM Data Pipeline
 
 <p align="center">
   <img src="./.docs/figures/BlendCorpus.jpg" alt="BlendCorpus Logo" width="400"/>
 </p>
 
-**BlendCorpus** is a modular and scalable data preprocessing and loading framework for large language model (LLM) training. It supports efficient tokenization using MPI-based parallelism and provides customizable dataloaders compatible with various LLM training workflows such as Megatron-DeepSpeed and TorchTitan. **BlendCorpus** allows seamless integration of different tokenizers, dataset formats, and distributed training setups, making it suitable for research and production-scale LLM pipelines.
+**BlendCorpus** is a modular and scalable data preprocessing and loading framework for large language model (LLM) training. It supports efficient tokenization using MPI-based parallelism and provides customizable dataloaders compatible with various LLM training workflows such as Megatron-DeepSpeed and TorchTitan. **BlendCorpus** allows seamless integration of different tokenizers, dataset formats, and distributed training setups, making it suitable for research- and production-scale LLM pipelines.
 
 ## Install
 ```bash
@@ -12,43 +12,72 @@ git clone https://github.com/blendcorpus.git
 cd blendcorpus
 pip install -e .
 ```
-## Fusing small files
-Fusing small files is important because it reduces the index-building overhead in Megatron-DeepSpeed and helps avoid rounding errors that can occur when processing very small files. By combining these files, we can improve efficiency and stability during training or data preprocessing.
+
+## Downloading a Dataset from Hugging Face
+Set the `HF_TOKEN`. If you do not have a Hugging Face token, you can generate one: https://huggingface.co/settings/tokens
 ```bash
-export PPN=16
+export HF_TOKEN=xxxxxxxx
+download-huggingface-dataset.sh --dataset HuggingFaceFW/fineweb-edu --output fineweb-edu-2025-09-05
+```
+
+## Fusing Small Files
+Fusing small files reduces index-building overhead in Megatron-DeepSpeed and helps avoid rounding errors that can occur when processing very small files. By combining these files, you improve efficiency and stability during training or data preprocessing.
+```bash
+export PPN=4
 export THREADS_PER_RANK=4
+ROOT=data
+OUT=data-fused
 mpiexec -np $((PBS_JOBSIZE*PPN)) --ppn $PPN --cpu-bind depth -d $THREADS_PER_RANK launcher.sh ./fuse_files_parallel.sh
 ```
 
-## Tokenizing dataset
+## Tokenizing the Dataset
 ```bash
 mpiexec -n $((PBS_JOBSIZE * PPN)) --ppn $PPN --cpu-bind depth -d 16 \
     tokenization \
-    --input-dir data \
-    --output-dir data_Llama2Tokenizer_eod \
+    --input-dir data-fused \
+    --output-dir data-fused-tok \
     --num-workers 16 \
     --tokenizer-type Llama2Tokenizer \
     --append-eod \
     --tokenizer-model ./llm_dataset/preprocess/tokenizer/tokenizer.model
 ```
 
-This will create tokenized data in ``data_Llama2Tokenizer_eod`` folder. Settings will be logged in ``data_Llama2Tokenizer_eod`` folder. 
+This creates tokenized data in the `data-fused-tok` folder. Settings are logged in the `data_Llama2Tokenizer_eod` folder.
 
-**Script Arguments**  
-   - `--input-dir data`  
-     Recursively finds all `*.gz` files under `data/`.  
-   - `--output-dir data_Llama2Tokenizer`  
-     Mirrors input directory structure under this path for tokenized outputs.  
-   - `--num-workers 16`  
-     Number of intra-file worker processes to use for each file.  
-   - `--tokenizer-type Llama2Tokenizer`  
-     Specifies the tokenizer backend; can be changed to `GPT2BPETokenizer`, etc.  
-   - `--tokenizer-model /path/to/spiece.model`  
+**Script arguments**
+   - `--input-dir data`
+     Recursively finds all `*.gz` files under `data/`.
+   - `--output-dir data_Llama2Tokenizer`
+     Mirrors the input directory structure under this path for tokenized outputs.
+   - `--num-workers 16`
+     Number of intra-file worker processes to use for each file.
+   - `--tokenizer-type Llama2Tokenizer`
+     Specifies the tokenizer backend; can be changed to `GPT2BPETokenizer`, etc.
+   - `--tokenizer-model /path/to/spiece.model`
      Path to the SentencePiece model when required.
-   - `--append-eod` 
-     Whether to append end of document token or not. 
+   - `--append-eod`
+     Append the end-of-document token.
 
-## Using the dataset and dataloader
+## Generate Dataset Metadata
+
+```bash
+mpiexec -np $NPROCS --ppn $PPN --cpu-bind depth -d 1 launcher.sh \
+	      get_meta_data \
+        --input-dir data-fused-tok \
+        --output data-fused-tok.json
+```
+`data-fused-tok.json` contains `num_docs` and `num_tokens` for all files.
+
+
+## Generate Data List File
+```bash
+gen-file-list --input-json data-fused-tok.json 
+  --output olmo-fused-file-list.txt --topdir /flare/AuroraGPT/datasets/olmo-mix-1124/  --epochs 1 2 3
+```
+You can specify the epochs for different corpora.
+
+
+## Using the Dataset and Dataloader
 ```python
 from blendcorpus import (
     get_config, 
@@ -66,14 +95,14 @@ mpu.initialize_model_parallel(
     sequence_parallel_size=1,
     )
 
-# check blendcorpus.data.config for details 
+# Check `blendcorpus.data.config` for details.
 set_config(args)
 config = get_config()
 
-# build datasets
+# Build datasets
 train_ds, valid_ds, test_ds = build_gpt_datasets(config)
 
-# build dataloaders
+# Build dataloaders
 # consumed_train_samples = restart_iters * args.global_batch_size
 train_dataloader = build_pretraining_data_loader(
         train_ds, 
@@ -84,8 +113,7 @@ valid_dataloader = build_pretraining_data_loader(
 test_dataloader = build_pretraining_data_loader(
         test_ds, consumed_test_samples, config)
 
-
-    # Build iterators.
+# Build iterators.
 dl_type = args.dataloader_type
 assert dl_type in ["single", "cyclic"]
 
@@ -106,7 +134,7 @@ def get_batch(data_iterator):
     args = get_args()
     tokenizer = get_tokenizer()
 
-    # Items and their type.
+    # Items and their types.
     keys = ['text']
     datatype = torch.int64
 
@@ -118,12 +146,12 @@ def get_batch(data_iterator):
     
     data_b = mpu.broadcast_data_in_model_parallel_group(keys, data, datatype)
 
-    # Unpack.
+    # Unpack
     tokens_ = data_b['text'].long()
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
 
-    # Get the masks and postition ids.
+    # Get the masks and position IDs.
     attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
         tokens,
         tokenizer.eod,
@@ -135,7 +163,7 @@ def get_batch(data_iterator):
 
 ```
 
-Each item from the data loader is (size of args.micro_batch_size (8 in this case))
+Each item from the dataloader has size `args.micro_batch_size` (8 in this example):
 ```
  {'dataset_idx': tensor([0, 0, 0, 0, 0, 0, 0, 0]), 'text': tensor([[29091,   350,  1525,  ..., 29890,   440,   487],
         [29891,  6378, 29889,  ...,   448, 18043,   491],
@@ -145,10 +173,3 @@ Each item from the data loader is (size of args.micro_batch_size (8 in this case
         [  459,   793, 29915,  ...,  1735, 29889,    13],
         [29915, 29879,  4315,  ...,  6115, 24060, 18864]])}
 ```
-
-
-
-## Ongoing other supports 
-### Other tokenizers
-https://github.com/openai/tiktoken
-### Integration with TorchTitan

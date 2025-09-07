@@ -20,6 +20,7 @@ export PREPROCESS=tokenization.sh
 #  - for HFTokenizer, one has to provide the tokenizer directory
 #  - for others, one provide the path to tokenizer.model
 
+
 export TOKENIZER=/home/hzheng/AuroraGPT/olmo-mix-1124/gemma-7b/
 
 # input folder

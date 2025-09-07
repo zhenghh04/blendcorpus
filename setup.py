@@ -14,7 +14,8 @@ setup(
             'tokenization=preprocess.preprocess_data_parallel:main',            
             'get_meta_data=preprocess.get_meta_data:main',
             'test_dataloader=tests.test_dataloader:main',
-            'merge_parquet=preprocess.fuse_files.merge_parquet:main'
+            'merge_parquet=preprocess.fuse_files.merge_parquet:main', 
+            'gen_file_list=preprocess.fuse_files.gen_file_list:main'
         ]
     },
     scripts=['utils/launcher.sh', 'preprocess/tokenization/tokenization.sh', 'utils/barrier.sh', 'utils/download-huggingface-dataset.sh'],
