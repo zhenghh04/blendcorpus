@@ -64,3 +64,13 @@ no-cov = "cov --no-cov"
 
 [[tool.hatch.envs.test.matrix]]
 python = ["310", "311", "312"]
+
+
+[tool.uv]
+override-dependencies = [
+    "torch; sys_platform == 'never'",
+    "torchaudio; sys_platform == 'never'",
+    "torchvision; sys_platform == 'never'",
+    "mpi4py; sys_platform == 'never'",
+]
+# conflicts = [[{ extra = "xpu" }, { extra = "cpu" }, { extra = "cu128" }]]
