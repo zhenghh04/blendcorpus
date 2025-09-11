@@ -10,16 +10,16 @@ import numpy as np
 import torch
 import blendcorpus.parallel_state as mpu
 from blendcorpus.utils import print_rank_0
-from .config import get_config as get_args
+from blendcorpus.data.config import get_config as get_args
 
-from . import helpers  # type:ignore
-from .blendable_dataset import BlendableDataset
-from .dataset_utils import (
+from blendcorpus.data import helpers
+from blendcorpus.data.blendable_dataset import BlendableDataset
+from blendcorpus.data.dataset_utils import (
     get_datasets_weights_and_num_samples,
     get_datasets_corpuses_weights_and_num_samples,
     get_train_valid_test_split_
 )
-from .indexed_dataset import make_dataset as make_indexed_dataset
+from blendcorpus.data.indexed_dataset import make_dataset as make_indexed_dataset
 
 from blendcorpus.utils import PerfTrace, Profile, get_logger
 

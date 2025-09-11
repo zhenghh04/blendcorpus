@@ -11,7 +11,8 @@ import numpy as np
 import torch
 
 # from megatron import print_rank_0
-from blendcorpus import mpu
+# from blendcorpus.pa import mpu
+import blendcorpus.parallel_state as mpu
 from blendcorpus.utils import Profile, PerfTrace, get_logger
 
 log = get_logger(__name__, rank_zero_only=True)
