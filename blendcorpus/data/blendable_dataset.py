@@ -6,18 +6,15 @@ import hashlib
 import os
 import time
 
-import logging
-import numpy as np
 import ezpz
 
 import torch
+import numpy as np
 
-# from megatron import print_rank_0
-# from blendcorpus.pa import mpu
 import blendcorpus.parallel_state as mpu
 from blendcorpus.utils import Profile, PerfTrace, get_logger
 
-log = ezpz.get_logger(__name__)
+logger = ezpz.get_logger(__name__)
 
 dlp = Profile("DATASET")
 
@@ -54,7 +51,7 @@ class BlendableDataset(torch.utils.data.Dataset):
                 self.size,
                 torch.distributed.get_rank() == 0,
             )
-            log.info(
+            logger.info(
                 "> elapsed time for building blendable dataset indices: "
                 f"{time.perf_counter() - start_time:.2f} (sec)"
             )
@@ -79,14 +76,14 @@ class BlendableDataset(torch.utils.data.Dataset):
             cache_hit = os.path.isfile(index_path) and os.path.isfile(sample_index_path)
             cache_success = True
             if torch.distributed.get_rank() == 0 and not cache_hit:
-                print(
+                logger.info(
                     " > WARNING: could not find index map files for blendable"
                     " dataset, building indices on rank 0 ...",
                     flush=True,
                 )
                 dataset_index, dataset_sample_index = _build_indices()
                 try:
-                    log.debug(" > saving index map files")
+                    logger.debug(" > saving index map files")
                     start_time = time.perf_counter()
                     os.makedirs(os.path.dirname(index_path), exist_ok=True)
                     with open(desc_path, "wt") as fd:
@@ -95,48 +92,51 @@ class BlendableDataset(torch.utils.data.Dataset):
                         np.save(
                             sample_index_path, dataset_sample_index, allow_pickle=True
                         )
-                    log.info(
+                    logger.info(
                         f" > finished saving index map files in {time.perf_counter() - start_time} seconds"
                     )
                 except OSError:
-                    print(
-                        f"There was an error trying to create the data cache directory ({data_cache_path})"
+                    logger.info(
+                        " ".join(
+                            [
+                                "There was an error trying to create the data",
+                                f"cache directory ({data_cache_path})",
+                                "or a file in it. This is set with the",
+                                "--data-cache-path argument. Please ensure you",
+                                "have write access to this directory or specify one",
+                                "that you do have write access to.",
+                            ]
+                        )
                     )
-                    print(
-                        "or a file in it. This is set with the --data-cache-path argument. Please"
-                    )
-                    print(
-                        "ensure you have write access to this directory or specify one that you do have"
-                    )
-                    print("write access to.")
                     cache_success = False
                 self.dataset_index = dataset_index
                 self.dataset_sample_index = dataset_sample_index
-            """ I don't think the following piece of code is necessary any more; I commented them out now
-            counts = get_accelerator().LongTensor([cache_success])
-            torch.distributed.all_reduce(counts, group=mpu.get_data_parallel_group())
-            torch.distributed.all_reduce(counts, group=mpu.get_pipeline_model_parallel_group())
-            if counts[0].item() != (
-                    torch.distributed.get_world_size() //
-                    torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group()) //
-                    torch.distributed.get_world_size(group=mpu.get_sequence_parallel_group())):
-                log.info("Data index creation unsuccessful, exiting.")
-                exit()
-            """
+            # XXX:
+            # I don't think the following piece of code is necessary any more;
+            # I commented them out now
+            # counts = get_accelerator().LongTensor([cache_success])
+            # torch.distributed.all_reduce(counts, group=mpu.get_data_parallel_group())
+            # torch.distributed.all_reduce(counts, group=mpu.get_pipeline_model_parallel_group())
+            # if counts[0].item() != (
+            #         torch.distributed.get_world_size() //
+            #         torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group()) //
+            #         torch.distributed.get_world_size(group=mpu.get_sequence_parallel_group())):
+            #     logger.info("Data index creation unsuccessful, exiting.")
+            #     exit()
             torch.distributed.barrier(group=mpu.get_data_parallel_group())
             torch.distributed.barrier(group=mpu.get_pipeline_model_parallel_group())
             torch.distributed.barrier(group=mpu.get_data_parallel_group())
 
             start_time = time.perf_counter()
-            log.info(f"> loading blendable dataset index: {index_path}")
+            logger.info(f"> loading blendable dataset index: {index_path}")
             self.dataset_index = np.load(index_path, allow_pickle=True, mmap_mode="r")
             assert self.dataset_index.size == self.size
-            log.info(f"> loading blendable dataset sample index: {sample_index_path}")
+            logger.info(f"> loading blendable dataset sample index: {sample_index_path}")
             self.dataset_sample_index = np.load(
                 sample_index_path, allow_pickle=True, mmap_mode="r"
             )
             assert self.dataset_sample_index.size == self.size
-            log.info(
+            logger.info(
                 f"> finished loading in {time.perf_counter() - start_time} seconds"
             )
         else:
@@ -149,7 +149,7 @@ class BlendableDataset(torch.utils.data.Dataset):
             raise RuntimeError("BlendedDataset size is improperly bounded")
         except IndexError:
             pass
-        log.info("> size of blendable dataset: {} samples".format(self.size))
+        logger.info("> size of blendable dataset: {} samples".format(self.size))
 
     def __len__(self):
         return self.size
