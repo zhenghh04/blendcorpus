@@ -7,31 +7,37 @@ import os
 import time
 
 import numpy as np
-import torch
-import blendcorpus.parallel_state as mpu
-from blendcorpus.utils import print_rank_0
-from blendcorpus.data.config import get_config as get_args
 
 from blendcorpus.data import helpers
 from blendcorpus.data.blendable_dataset import BlendableDataset
+from blendcorpus.data.config import get_config as get_args
 from blendcorpus.data.dataset_utils import (
-    get_datasets_weights_and_num_samples,
     get_datasets_corpuses_weights_and_num_samples,
-    get_train_valid_test_split_
+    get_datasets_weights_and_num_samples,
+    get_train_valid_test_split_,
 )
 from blendcorpus.data.indexed_dataset import make_dataset as make_indexed_dataset
+import blendcorpus.parallel_state as mpu
+from blendcorpus.utils import print_rank_0
 
-from blendcorpus.utils import PerfTrace, Profile, get_logger
+from blendcorpus.utils import Profile  # PerfTrace, get_logger
+
+import ezpz
+import torch
+
+logger = ezpz.get_logger(__name__)
 
 dlp = Profile("DATASET")
-log = get_logger(__name__, rank_zero_only=True)
+# log = get_logger(__name__, rank_zero_only=True)
+# logger = ezpz.get_logger(__name__)
+
 
 def build_gpt_datasets(config):
     files = []
     weights = []
     flist = []
     corpus_all = []
-    with open(config.data_file_list, 'r') as fin:
+    with open(config.data_file_list, "r") as fin:
         for f in fin.readlines():
             w, fname, c = f.split()
             weights.append(float(w))
@@ -42,11 +48,11 @@ def build_gpt_datasets(config):
             if c not in corpus_all:
                 corpus_all.append(c)
     weights = np.array(weights)
-    weights = weights/np.sum(weights)
-    train_samples = config.global_batch_size*config.train_iters
+    weights = weights / np.sum(weights)
+    train_samples = config.global_batch_size * config.train_iters
     test_iters = config.eval_iters
-    eval_samples = config.global_batch_size*config.eval_iters
-    test_samples = config.global_batch_size*config.eval_iters
+    eval_samples = config.global_batch_size * config.eval_iters
+    test_samples = config.global_batch_size * config.eval_iters
 
     num_datasets = len(weights)
     print_rank_0(f"Reading data from {config.data_file_list}")
@@ -58,16 +64,21 @@ def build_gpt_datasets(config):
     print_rank_0(f"Total number of evaluation samples: {eval_samples}")
     print_rank_0(f"Total number of testing samples: {test_samples}")
     train_valid_test_num_samples = [train_samples, eval_samples, test_samples]
-    seed=config.seed
+    seed = config.seed
     data_impl = config.data_impl
     skip_warmup = not config.mmap_warmup
     seq_length = config.seq_length
-    splits_string = config.split          
+    splits_string = config.split
     train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
-        files, data_impl, splits_string,
+        files,
+        data_impl,
+        splits_string,
         train_valid_test_num_samples,
-        seq_length, seed, skip_warmup,
-        data_cache_path=config.data_cache_path)
+        seq_length,
+        seed,
+        skip_warmup,
+        data_cache_path=config.data_cache_path,
+    )
     return train_ds, valid_ds, test_ds
 
 
@@ -129,6 +140,7 @@ class DatasetBuilder:
         self.build = True
         return self.dataset
 
+
 class BuildCorpusDataset(torch.utils.data.Dataset):
     @dlp.log
     def __init__(self, dataset_builders):
@@ -149,11 +161,17 @@ class BuildCorpusDataset(torch.utils.data.Dataset):
             dataset_sample_index = np.zeros(self.num_samples, dtype=np.int64)
             weights = num_samples_list / self.num_samples
             helpers.build_blending_indices(
-                dataset_index, dataset_sample_index,
-                weights, self.num_datasets, self.num_samples,
-                torch.distributed.get_rank() == 0)
-            log.debug(f"> elapsed time for building blendable dataset indices for corpus {self.dataset_builders[0].corpus}: "
-                      "{:.2f} (sec)".format(time.time() - start_time))
+                dataset_index,
+                dataset_sample_index,
+                weights,
+                self.num_datasets,
+                self.num_samples,
+                torch.distributed.get_rank() == 0,
+            )
+            logger.debug(
+                f"> elapsed time for building blendable dataset indices for corpus {self.dataset_builders[0].corpus}: "
+                "{:.2f} (sec)".format(time.time() - start_time)
+            )
             return dataset_index, dataset_sample_index
 
         @dlp.log
@@ -168,12 +186,12 @@ class BuildCorpusDataset(torch.utils.data.Dataset):
                 self.num_datasets,
                 torch.distributed.get_rank() == 0,
             )
-            log.debug(
+            logger.debug(
                 "> elapsed time for building concat dataset indices: "
                 "{:.2f} (sec)".format(time.time() - start_time)
             )
             return dataset_index, dataset_sample_index
-        
+
         def _build_indices():
             if args.blend_sample_in_corpus:
                 return _build_indices_blended()
@@ -190,31 +208,51 @@ class BuildCorpusDataset(torch.utils.data.Dataset):
             self.dataset_index = np.zeros(self.num_samples, dtype=np.int64)
             self.dataset_sample_index = np.zeros(self.num_samples, dtype=np.int64)
             if args.data_cache_path:
-                desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
+                desc_hash = hashlib.md5(desc.encode("utf-8")).hexdigest()
                 desc_path = os.path.join(args.data_cache_path, desc_hash + ".dsc")
-                index_path = os.path.join(args.data_cache_path, desc_hash + "_index.npy")
-                sample_index_path = os.path.join(args.data_cache_path, desc_hash + "_sample_index.npy")
-                cache_hit = os.path.isfile(index_path) and os.path.isfile(sample_index_path)
+                index_path = os.path.join(
+                    args.data_cache_path, desc_hash + "_index.npy"
+                )
+                sample_index_path = os.path.join(
+                    args.data_cache_path, desc_hash + "_sample_index.npy"
+                )
+                cache_hit = os.path.isfile(index_path) and os.path.isfile(
+                    sample_index_path
+                )
                 cache_success = True
                 if torch.distributed.get_rank() == 0 and not cache_hit:
-                    print(' > WARNING: could not find index map files for blendable'
-                          ' dataset, building indices on rank 0 ...', flush=True)
+                    print(
+                        " > WARNING: could not find index map files for blendable"
+                        " dataset, building indices on rank 0 ...",
+                        flush=True,
+                    )
                     dataset_index, dataset_sample_index = _build_indices()
                     try:
-                        log.debug(" > saving index map files")
+                        logger.debug(" > saving index map files")
                         start_time = time.perf_counter()
                         os.makedirs(os.path.dirname(index_path), exist_ok=True)
-                        with open(desc_path, 'wt') as fd:
+                        with open(desc_path, "wt") as fd:
                             fd.write(desc)
                             np.save(index_path, dataset_index, allow_pickle=True)
-                            np.save(sample_index_path, dataset_sample_index,
-                                    allow_pickle=True)
-                            log.info(f" > finished saving {self.dataset_builders[0].corpus} corpus index map files in {time.perf_counter() - start_time} seconds")
+                            np.save(
+                                sample_index_path,
+                                dataset_sample_index,
+                                allow_pickle=True,
+                            )
+                            logger.info(
+                                f" > finished saving {self.dataset_builders[0].corpus} corpus index map files in {time.perf_counter() - start_time} seconds"
+                            )
                     except OSError:
-                        print(f'There was an error trying to create the data cache directory ({args.data_cache_path})')
-                        print('or a file in it. This is set with the --data-cache-path argument. Please')
-                        print('ensure you have write access to this directory or specify one that you do have')
-                        print('write access to.')
+                        print(
+                            f"There was an error trying to create the data cache directory ({args.data_cache_path})"
+                        )
+                        print(
+                            "or a file in it. This is set with the --data-cache-path argument. Please"
+                        )
+                        print(
+                            "ensure you have write access to this directory or specify one that you do have"
+                        )
+                        print("write access to.")
                         cache_success = False
                     self.dataset_index = dataset_index
                     self.dataset_sample_index = dataset_sample_index
@@ -222,15 +260,26 @@ class BuildCorpusDataset(torch.utils.data.Dataset):
                 torch.distributed.barrier(group=mpu.get_pipeline_model_parallel_group())
                 torch.distributed.barrier(group=mpu.get_data_parallel_group())
                 start_time = time.perf_counter()
-                log.info(f'> loading {self.dataset_builders[0].corpus} corpus dataset index: {index_path}')
-                self.dataset_index = np.load(index_path, allow_pickle=True, mmap_mode='r')
+                logger.info(
+                    f"> loading {self.dataset_builders[0].corpus} corpus dataset index: {index_path}"
+                )
+                self.dataset_index = np.load(
+                    index_path, allow_pickle=True, mmap_mode="r"
+                )
                 assert self.dataset_index.size == self.num_samples
-                log.info(f'> loading {self.dataset_builders[0].corpus} corpus dataset sample index: {sample_index_path}')
-                self.dataset_sample_index = np.load(sample_index_path, allow_pickle=True, mmap_mode='r')
+                logger.info(
+                    f"> loading {self.dataset_builders[0].corpus} corpus dataset sample index: {sample_index_path}"
+                )
+                self.dataset_sample_index = np.load(
+                    sample_index_path, allow_pickle=True, mmap_mode="r"
+                )
                 assert self.dataset_sample_index.size == self.num_samples
-                log.info(f'> finished loading in {time.perf_counter() - start_time} seconds')
+                logger.info(
+                    f"> finished loading in {time.perf_counter() - start_time} seconds"
+                )
             else:
                 self.dataset_index, self.dataset_sample_index = _build_indices()
+
         _cache_indices()
         np_rng = np.random.RandomState(seed=dataset_builders[0].seed)
         self.shuffle_index = np.arange(self.num_samples)
@@ -239,7 +288,7 @@ class BuildCorpusDataset(torch.utils.data.Dataset):
         for i in range(self.num_datasets):
             self.desc += dataset_builders[i].prefix + ","
 
-        log.info(
+        logger.info(
             f"[BuildCorpusDataset] Caught {args.shuffle_sample_in_corpus=} across"
             f" {self.num_samples} samples"
         )
@@ -282,7 +331,7 @@ def build_train_valid_test_datasets(
     """Build train, valid, and test datasets."""
 
     if data_prefix:
-        log.debug("Single data path provided for train, valid & test")
+        logger.debug("Single data path provided for train, valid & test")
 
         # Single dataset.
         if len(data_prefix) == 1:
@@ -308,13 +357,15 @@ def build_train_valid_test_datasets(
             sum, zip(*datasets_train_valid_test_num_samples)
         )
 
-        num_samples = {'train': train_num_samples, 
-            'valid': valid_num_samples, 
-            'test': test_num_samples}
+        num_samples = {
+            "train": train_num_samples,
+            "valid": valid_num_samples,
+            "test": test_num_samples,
+        }
 
         # Predetermine whether need to build the specific dataset or not.
         start_time = time.time()
-        log.debug(" >>> Started building datasets in distributed way ... ")
+        logger.debug(" >>> Started building datasets in distributed way ... ")
 
         a, b, c = [int(d) for d in splits_string.split(",")]
 
@@ -323,12 +374,13 @@ def build_train_valid_test_datasets(
         test_datasets = []
         # Build individual datasets.
         args = get_args()
+
         @dlp.log
         def build_corpus_datasets(dataset_type="train"):
             if num_samples[dataset_type] == 0:
                 return None, None
             start_time = time.time()
-            log.debug(f" >>> Building {dataset_type} corpus datasets ...")
+            logger.debug(f" >>> Building {dataset_type} corpus datasets ...")
             datasets = []
             corpus_builders = {}
             corpus_weights = {}
@@ -359,7 +411,7 @@ def build_train_valid_test_datasets(
                 // mpu.get_tensor_model_parallel_world_size(),
             ):
                 dataset_builders[i].Build()
-            log.debug(
+            logger.debug(
                 f" >>> Finished building individual datasets in {time.time() - start_time} seconds"
             )
             start_concating_time = time.time()
@@ -367,7 +419,7 @@ def build_train_valid_test_datasets(
                 corpus_builders[d.corpus].append(d)
                 corpus_weights[d.corpus] += weights[i]
             total = 0
-            log.debug(" > number of samples for each corpus ")
+            logger.debug(" > number of samples for each corpus ")
             corpus_weights_achieved = {}
             for c in corpus_list:
                 datasets.append(BuildCorpusDataset(corpus_builders[c]))
@@ -375,15 +427,15 @@ def build_train_valid_test_datasets(
                 corpus_weights_achieved[c] = (
                     float(datasets[-1].num_samples) / num_samples[dataset_type]
                 )
-                log.debug(
+                logger.debug(
                     f"    {c}: {datasets[-1].num_samples} w={corpus_weights_achieved[c]} (expected: {corpus_weights[c]})"
                 )
 
-            log.debug(f" > total number of samples: {total}")
-            log.debug(
+            logger.debug(f" > total number of samples: {total}")
+            logger.debug(
                 f" >>> Finished concatenating datasets in {time.time() - start_concating_time} seconds"
             )
-            log.debug(
+            logger.debug(
                 f" >>> Finished building {dataset_type} corpus datasets in {time.time() - start_time} seconds"
             )
             return datasets, [corpus_weights_achieved[c] for c in corpus_list]
@@ -400,16 +452,16 @@ def build_train_valid_test_datasets(
 
         # This barrier is critical to make sure that all the datasets are built once
         # and the metadata were written to the cache folder before other ranks touch them
-        log.debug(
+        logger.debug(
             f" >>> Rank 0 - finished building datasets in {time.time() - start_time} seconds"
         )
         torch.distributed.barrier(group=mpu.get_data_parallel_group())
         torch.distributed.barrier(group=mpu.get_pipeline_model_parallel_group())
         torch.distributed.barrier(group=mpu.get_data_parallel_group())
-        log.debug(
+        logger.debug(
             f" >>> Finished building datasets (all ranks) in distributed way in {time.time() - start_time} seconds"
         )
-        log.debug(" >>> Starting to build BlendableDataset")
+        logger.debug(" >>> Starting to build BlendableDataset")
         # Blend.
         start_time = time.time()
         blending_train_dataset = None
@@ -437,13 +489,13 @@ def build_train_valid_test_datasets(
                 data_cache_path=data_cache_path,
             )
         end_time = time.time()
-        log.debug(
+        logger.debug(
             f" >>> Finished building BlendableDataset in {end_time - start_time} seconds"
         )
         return (blending_train_dataset, blending_valid_dataset, blending_test_dataset)
 
     else:
-        log.debug(
+        logger.debug(
             "Separate data paths provided for train, valid & test. Split string will be ignored."
         )
 
@@ -513,12 +565,12 @@ def _build_train_valid_test_datasets(
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
 
     # Print stats about the splits.
-    log.debug(" > dataset split:")
+    logger.debug(" > dataset split:")
 
     def print_split_stats(name, index):
-        log.debug("    {}:".format(name))
-        log.debug(
-            "     document indices in [{}, {}) total of {} " "documents".format(
+        logger.debug("    {}:".format(name))
+        logger.debug(
+            "     document indices in [{}, {}) total of {} documents".format(
                 splits[index], splits[index + 1], splits[index + 1] - splits[index]
             )
         )
@@ -571,7 +623,7 @@ def _build_train_valid_test_datasets_single(
     """Build train, valid, and test datasets."""
 
     # Each rank print out information
-    log.debug(f" >> building dataset for {data_prefix}")
+    logger.debug(f" >> building dataset for {data_prefix}")
     # Indexed dataset.
     indexed_dataset = get_indexed_dataset_(data_prefix, data_impl, skip_warmup)
 
@@ -579,12 +631,12 @@ def _build_train_valid_test_datasets_single(
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
 
     # Print stats about the splits.
-    log.debug(" > dataset split:")
+    logger.debug(" > dataset split:")
 
     def print_split_stats(name, index):
-        log.debug("    {}:".format(name))
-        log.debug(
-            "     document indices in [{}, {}) total of {} " "documents".format(
+        logger.debug("    {}:".format(name))
+        logger.debug(
+            "     document indices in [{}, {}) total of {} documents".format(
                 splits[index], splits[index + 1], splits[index + 1] - splits[index]
             )
         )
@@ -702,9 +754,9 @@ def _build_dataset(
 
     total_num_of_documents = indexed_dataset.sizes.shape[0]
 
-    log.debug("    {}:".format(dataset_name))
-    log.debug(
-        "     document indices in [0, {}) total of {} " "documents".format(
+    logger.debug("    {}:".format(dataset_name))
+    logger.debug(
+        "     document indices in [0, {}) total of {} documents".format(
             total_num_of_documents, total_num_of_documents
         )
     )
@@ -729,16 +781,16 @@ def _build_dataset(
 @dlp.log
 def get_indexed_dataset_(data_prefix, data_impl, skip_warmup):
     """Build indexed dataset."""
-    log.debug(" > building dataset index ...")
+    logger.debug(" > building dataset index ...")
 
     start_time = time.time()
     indexed_dataset = make_indexed_dataset(data_prefix, data_impl, skip_warmup)
-    log.debug(
-        " > finished creating indexed dataset in {:4f} " "seconds".format(
+    logger.debug(
+        " > finished creating indexed dataset in {:4f} seconds".format(
             time.time() - start_time
         )
     )
-    log.debug("    number of documents: {}".format(indexed_dataset.sizes.shape[0]))
+    logger.debug("    number of documents: {}".format(indexed_dataset.sizes.shape[0]))
 
     return indexed_dataset
 
@@ -796,7 +848,7 @@ class GPTDataset(torch.utils.data.Dataset):
         try:
             idx = self.shuffle_idx[idx]
         except IndexError as exc:
-            if torch.distributed.get_rank()==0:
+            if torch.distributed.get_rank() == 0:
                 import json
                 from rich import print_json
 
@@ -952,7 +1004,7 @@ def _build_index_mappings(
         # Since this function will be called by all the rank in the very beginning. Therefore, we assume that all the
         # ranks will first create the document files, and then read it.
         # There will not be contension effects going on either
-        log.warning(
+        logger.warning(
             f" > WARNING: could not find index map files, building on rank {torch.distributed.get_rank()}"
         )
 
@@ -963,8 +1015,8 @@ def _build_index_mappings(
         # not mean anything.
         if num_epochs == 1:
             separate_last_epoch = False
-            log.debug(
-                " > only one epoch required, setting " "separate_last_epoch to False"
+            logger.debug(
+                " > only one epoch required, setting separate_last_epoch to False"
             )
 
         else:
@@ -973,13 +1025,13 @@ def _build_index_mappings(
                 (num_epochs - 1) * tokens_per_epoch - 1
             ) // seq_length
             last_epoch_num_samples = num_samples - num_samples_from_epochs_minus_one
-            assert (
-                last_epoch_num_samples >= 0
-            ), "last epoch number of samples should be non-negative."
+            assert last_epoch_num_samples >= 0, (
+                "last epoch number of samples should be non-negative."
+            )
             num_samples_per_epoch = (tokens_per_epoch - 1) // seq_length
-            assert last_epoch_num_samples <= (
-                num_samples_per_epoch + 1
-            ), "last epoch number of samples exceeded max value."
+            assert last_epoch_num_samples <= (num_samples_per_epoch + 1), (
+                "last epoch number of samples exceeded max value."
+            )
             # If we have less than 80% of the samples for the last epoch,
             # seperate out the epoch and treat it differently.
             # Note: the 80% number is just based on common sense and can
@@ -999,7 +1051,7 @@ def _build_index_mappings(
                     "than 80% of number of samples per epoch ({}), "
                     "setting separate_last_epoch to False"
                 )
-            log.debug(string.format(last_epoch_num_samples, num_samples_per_epoch))
+            logger.debug(string.format(last_epoch_num_samples, num_samples_per_epoch))
 
         try:
             os.makedirs(data_cache_dir, exist_ok=True)
@@ -1012,7 +1064,7 @@ def _build_index_mappings(
             start_time = time.time()
             doc_idx = _build_doc_idx(documents, num_epochs, np_rng, separate_last_epoch)
             np.save(idx_path["doc"], doc_idx, allow_pickle=True)
-            log.debug(
+            logger.debug(
                 " > elasped time to build and save doc-idx mapping "
                 "(seconds): {:4f}".format(time.time() - start_time)
             )
@@ -1033,7 +1085,7 @@ def _build_index_mappings(
                 torch.distributed.get_rank() == 0,
             )
             np.save(idx_path["sample"], sample_idx, allow_pickle=True)
-            log.debug(
+            logger.debug(
                 " > elasped time to build and save sample-idx mapping "
                 "(seconds): {:4f}".format(time.time() - start_time)
             )
@@ -1049,7 +1101,7 @@ def _build_index_mappings(
                 num_samples_, sample_idx.shape[0] - 1, np_rng
             )
             np.save(idx_path["shuffle"], shuffle_idx, allow_pickle=True)
-            log.debug(
+            logger.debug(
                 " > elasped time to build and save shuffle-idx mapping"
                 " (seconds): {:4f}".format(time.time() - start_time)
             )
@@ -1071,20 +1123,20 @@ def _build_index_mappings(
 
     # Load mappings.
     start_time = time.time()
-    log.debug(f" > loading doc-idx mapping from {idx_path['doc']}")
+    logger.debug(f" > loading doc-idx mapping from {idx_path['doc']}")
     doc_idx = np.load(idx_path["doc"], allow_pickle=True, mmap_mode="r")
 
-    log.debug(f" > loading sample-idx mapping from {idx_path['sample']}")
+    logger.debug(f" > loading sample-idx mapping from {idx_path['sample']}")
     sample_idx = np.load(idx_path["sample"], allow_pickle=True, mmap_mode="r")
 
-    log.debug(f" > loading shuffle-idx mapping from {idx_path['shuffle']}")
+    logger.debug(f" > loading shuffle-idx mapping from {idx_path['shuffle']}")
     shuffle_idx = np.load(idx_path["shuffle"], allow_pickle=True, mmap_mode="r")
 
-    log.debug(
+    logger.debug(
         "    loaded indexed file in {:3.3f} seconds".format(time.time() - start_time)
     )
-    log.debug("    total number of samples: {}".format(sample_idx.shape[0]))
-    log.debug("    total number of epochs: {}".format(num_epochs))
+    logger.debug("    total number of samples: {}".format(sample_idx.shape[0]))
+    logger.debug("    total number of epochs: {}".format(num_epochs))
 
     return doc_idx, sample_idx, shuffle_idx, desc, desc_hash
 
@@ -1178,8 +1230,8 @@ def _build_sample_idx(sizes, doc_idx, seq_length, num_epochs, tokens_per_epoch):
 @dlp.log
 def _build_shuffle_idx(num_samples, total_size, np_rng):
     """Build the range [0, size) and shuffle."""
-    log.debug(
-        " > building shuffle index with split [0, {}) and [{}, {}) " "...".format(
+    logger.debug(
+        " > building shuffle index with split [0, {}) and [{}, {}) ...".format(
             num_samples, num_samples, total_size
         )
     )
