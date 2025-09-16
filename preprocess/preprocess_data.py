@@ -83,6 +83,8 @@ class Encoder(object):
 
     @dlp.log
     def encode(self, json_line):
+        if not json_line.strip():
+            return {}, {}, 0
         data = json.loads(json_line)
         ids = {}
         lens = {}
@@ -193,8 +195,13 @@ class Partition(object):
         startup_start = time.time()
         encoder = Encoder(self.args)
         tokenizer = build_tokenizer(self.args)
-        pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
-        encoded_docs = pool.imap(encoder.encode, fin, 32)
+        if self.workers > 0:
+            pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
+            encoded_docs = pool.imap(encoder.encode, fin, 32)
+        else:
+            encoder.initializer()
+            encoded_docs = map(encoder.encode, fin)
+            #= encoder.encode(fin)
 
         # For parquet, we do not support sentence splitting here; keep level as 'document'.
         level = "document"
@@ -218,6 +225,8 @@ class Partition(object):
         total_bytes_processed = 0
         print("Time to startup:", startup_end - startup_start)
         for i, (doc, sentence_lens, bytes_processed) in enumerate(encoded_docs, start=1):
+            if not doc:
+                continue   # skip bad/empty lines
             total_bytes_processed += bytes_processed
             for key in doc.keys():
                 builders[key].add_doc(doc[key], sentence_lens[key])
@@ -409,15 +418,21 @@ def main():
     # encode partition files in parallel
     processes = []
     input_key = 'sentence_split' if args.split_sentences else 'partition'
-    for name in in_ss_out_names:
-        p = multiprocessing.Process(target=partition.process_json_file,
-                                    args=((name[input_key], name['output_prefix']),))
-        p.start()
-        processes.append(p)
 
-    for p in processes:
-        p.join()
+    if args.workers > 0:
+        for name in in_ss_out_names:
+            p = multiprocessing.Process(target=partition.process_json_file,
+                                        args=((name[input_key], name['output_prefix']),))
+            p.start()
+            processes.append(p)
 
+        for p in processes:
+            p.join()
+
+    else:
+        for name in in_ss_out_names:
+            partition.process_json_file((name[input_key], name['output_prefix']))
+            
     if args.partitions == 1:
         return
 
