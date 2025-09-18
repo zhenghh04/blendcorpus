@@ -29,7 +29,7 @@ decompress_stream() {
   local last_char=""
   while IFS= read -r f; do
     case "$f" in
-	*.jsonl.zstd|*.json.zstd|*.json.zst|*.jsonl.szt)
+	*.jsonl.zstd|*.json.zstd|*.json.zst|*.jsonl.zst)
 	    cmd=(zstdcat "$f") ;;
 	*.json.gz|*.jsonl.gz)
             if command -v pigz >/dev/null 2>&1; then cmd=(pigz -dc "$f"); else cmd=(gzip -dc "$f"); fi
@@ -168,10 +168,10 @@ process_all_subfolders_distributed() {
     case "$firstfile" in
 	*.jsonl.zst|*.jsonl.zstd) ext="jsonl.zstd" ;;
 	*.json.zst|*.json.zstd) ext="json.zstd" ;;
-	*.json) ext="json";;
-	*.jsonl) ext="jsonl";;	
-	*.json.gz) ext="json.gz" ;;
-	*.jsonl.gz) ext="jsonl.gz" ;;	
+	*.json) ext="json.zstd";;
+	*.jsonl) ext="jsonl.zstd";;	
+	*.json.gz) ext="json.zstd" ;;
+	*.jsonl.gz) ext="jsonl.zstd" ;;	
 	*.parquet) ext="parquet" ;;
 	*) echo "  [rank $RANK] ERROR: unknown file extension for $firstfile"; exit 1 ;;
     esac
@@ -377,9 +377,9 @@ process_folder_distributed() {
 
 num_subfolders=$(find $ROOT -mindepth 1 -maxdepth 1 -type d | wc -l)
 if [[ $num_subfolders == 0 ]]; then
-  process_folder_distributed
+    process_folder_distributed
 else
-  process_all_subfolders_distributed
+    process_all_subfolders_distributed
 fi
 barrier.sh
 echo "[rank $RANK] done."
