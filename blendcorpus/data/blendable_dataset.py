@@ -79,7 +79,6 @@ class BlendableDataset(torch.utils.data.Dataset):
                 logger.info(
                     " > WARNING: could not find index map files for blendable"
                     " dataset, building indices on rank 0 ...",
-                    flush=True,
                 )
                 dataset_index, dataset_sample_index = _build_indices()
                 try:
