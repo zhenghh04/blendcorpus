@@ -71,7 +71,7 @@ mpiexec -np $NPROCS --ppn $PPN --cpu-bind depth -d 1 launcher.sh \
 
 ## Generate Data List File
 ```bash
-gen-file-list --input-json data-fused-tok.json 
+gen_file_list --input-json data-fused-tok.json 
   --output olmo-fused-file-list.txt --topdir /flare/AuroraGPT/datasets/olmo-mix-1124/  --epochs 1 2 3
 ```
 You can specify the epochs for different corpora.
