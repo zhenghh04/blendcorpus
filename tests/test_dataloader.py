@@ -8,13 +8,19 @@ start_time = time.time()
 from mpi4py import MPI
 import os
 import numpy as np
-from blendcorpus import (
-    get_config, 
-    set_config, 
-    mpu, 
-    build_gpt_datasets, 
-    build_pretraining_data_loader
-)
+import blendcorpus.parallel_state as mpu
+
+from blendcorpus.data.gpt_dataset import build_gpt_datasets
+from blendcorpus.data.data_samplers import build_pretraining_data_loader
+from blendcorpus.data.config import get_config, set_config
+
+# from blendcorpus import (
+#     get_config, 
+#     set_config, 
+#     mpu, 
+#     build_gpt_datasets, 
+#     build_pretraining_data_loader
+# )
 
 
 import argparse

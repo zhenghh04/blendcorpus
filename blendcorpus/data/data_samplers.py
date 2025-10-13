@@ -6,7 +6,7 @@ import random
 import torch
 import numpy as np
 from torch.utils.data import Dataset
-from blendcorpus import mpu
+import blendcorpus.parallel_state as mpu
 from deepspeed.runtime.dataloader import RepeatingLoader
 
 
