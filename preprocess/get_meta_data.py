@@ -15,15 +15,18 @@ def process_list_chunk(my_file_chunk, verbose=0):
         my_file_chunk  = tqdm(my_file_chunk)
     for data_prefix in my_file_chunk:
         # Indexed dataset.
-        indexed_dataset = get_indexed_dataset_(data_prefix,data_impl,skip_warmup)
-        total_num_of_documents = indexed_dataset.sizes.shape[0]
-        total_num_of_tokens = np.sum(indexed_dataset.sizes)
-        
-        data = {
-            "data_prefix": data_prefix,
-            "total_num_docs": int(total_num_of_documents),
-            "total_num_tokens": int(total_num_of_tokens)}
-        all_data.append(data)
+        try:
+            indexed_dataset = get_indexed_dataset_(data_prefix,data_impl,skip_warmup)
+            total_num_of_documents = indexed_dataset.sizes.shape[0]
+            total_num_of_tokens = np.sum(indexed_dataset.sizes)
+            
+            data = {
+                "data_prefix": data_prefix,
+                "total_num_docs": int(total_num_of_documents),
+                "total_num_tokens": int(total_num_of_tokens)}
+            all_data.append(data)
+        except:
+            print(f"Error precessing {data_prefix}")
     return all_data
 
 def main():
