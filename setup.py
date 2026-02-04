@@ -18,7 +18,7 @@ setup(
             'gen_file_list=preprocess.fuse_files.gen_file_list:main'
         ]
     },
-    scripts=['utils/launcher.sh', 'preprocess/tokenization/tokenization.sh', 'utils/barrier.sh', 'utils/download-huggingface-dataset.sh'],
+    scripts=['utils/launcher.sh', 'preprocess/tokenization/tokenization.sh', 'utils/barrier.sh', 'utils/download-huggingface-dataset.sh', 'preprocess/fuse_files/fuse_files_parallel.sh'],
     install_requires=[
         'nltk',
         'torch',
