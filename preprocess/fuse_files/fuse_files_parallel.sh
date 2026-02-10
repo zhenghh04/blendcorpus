@@ -7,10 +7,66 @@ OUT="${OUT:-data_fused}"             # output root
 MAX=$((5*1024*1024*1024))            # target ~5 GiB compressed per fused file
 THREADS_PER_RANK="${THREADS_PER_RANK:-4}"    # zstd threads per rank
 ZSTD_LEVEL="${ZSTD_LEVEL:--9}"       # compression level
+COUNT_ONLY="${COUNT_ONLY:-0}"        # 1/true/yes => estimate shards only
 RANK="${RANK:-0}"
 WORLD_SIZE="${WORLD_SIZE:-1}"
 
-mkdir -p "$OUT"
+is_true() {
+  case "${1:-}" in
+    1|true|TRUE|yes|YES|y|Y) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  fuse_files_parallel.sh [--input-dir <dir>] [--output-dir <dir>] [--dry-run|--count-only] [--help]
+
+Notes:
+  - --input-dir / --output-dir override ROOT / OUT env vars
+  - --dry-run / --count-only: predict fused shard counts only (no outputs written)
+  - Backward compatible with env COUNT_ONLY=1
+  - Other behavior remains env-controlled (MAX, THREADS_PER_RANK, ZSTD_LEVEL, ...)
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --input-dir)
+      [[ $# -ge 2 ]] || { echo "Error: --input-dir requires a value." >&2; usage; exit 1; }
+      ROOT="$2"
+      shift 2
+      ;;
+    --output-dir)
+      [[ $# -ge 2 ]] || { echo "Error: --output-dir requires a value." >&2; usage; exit 1; }
+      OUT="$2"
+      shift 2
+      ;;
+    --dry-run|--count-only)
+      COUNT_ONLY=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Error: unknown argument '$1'" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ ! -d "$ROOT" ]]; then
+  echo "Error: input directory does not exist: $ROOT" >&2
+  exit 1
+fi
+
+if ! is_true "$COUNT_ONLY"; then
+  mkdir -p "$OUT"
+fi
 
 print_rank_0() {
     if [[ $RANK == 0 ]]; then
@@ -68,6 +124,86 @@ make_groups_file() {
     }
     END { if (group!="") print group }
   ' "$1"
+}
+
+count_groups_in_tsv() {
+  # $1 = tsv (path<TAB>size)
+  awk -F'\t' -v MAX="$MAX" '
+    {
+      sz=$2+0
+      if (cur>0 && cur+sz>MAX) { n++; cur=0 }
+      cur += sz
+    }
+    END {
+      if (cur>0) n++
+      print n+0
+    }
+  ' "$1"
+}
+
+count_only_subfolders() {
+  local total_groups=0
+  local total_files=0
+  mapfile -t SUBS < <(find "$ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%P\n' | sort -V)
+  echo "[count] mode=subfolders root='$ROOT' subfolders=${#SUBS[@]} target_bytes=$MAX world_size=$WORLD_SIZE"
+
+  for sub in "${SUBS[@]}"; do
+    local subdir="$ROOT/$sub"
+    local tsv
+    tsv="$(mktemp)"
+    find "$subdir" -type f \( -name '*.jsonl.zstd' -o -name '*.json.gz' -o -name '*.parquet' -o -name '*.json*' \) \
+      -printf '%p\t%s\n' | sort -V > "$tsv"
+
+    local nfiles
+    nfiles=$(wc -l < "$tsv" | tr -d '[:space:]')
+    if [[ "$nfiles" == "0" ]]; then
+      rm -f "$tsv"
+      continue
+    fi
+
+    local ngroups
+    ngroups=$(count_groups_in_tsv "$tsv")
+    rm -f "$tsv"
+
+    total_files=$((total_files + nfiles))
+    total_groups=$((total_groups + ngroups))
+    printf '[count] subfolder=%s files=%d predicted_fused=%d\n' "$sub" "$nfiles" "$ngroups"
+  done
+
+  local per_rank=$(( (total_groups + WORLD_SIZE - 1) / WORLD_SIZE ))
+  printf '[count] summary files=%d predicted_fused_total=%d approx_per_rank=%d\n' "$total_files" "$total_groups" "$per_rank"
+}
+
+count_only_flat() {
+  local tsv
+  tsv="$(mktemp)"
+  find "$ROOT" -type f \( -name '*.jsonl.zstd' -o -name '*.json.gz' \) \
+    -printf '%p\t%s\n' | sort -V > "$tsv"
+
+  local nfiles
+  nfiles=$(wc -l < "$tsv" | tr -d '[:space:]')
+  if [[ "$nfiles" == "0" ]]; then
+    rm -f "$tsv"
+    echo "[count] mode=flat root='$ROOT' files=0 predicted_fused_total=0"
+    return
+  fi
+
+  local ngroups
+  ngroups=$(count_groups_in_tsv "$tsv")
+  rm -f "$tsv"
+
+  local per_rank=$(( (ngroups + WORLD_SIZE - 1) / WORLD_SIZE ))
+  printf '[count] mode=flat root=%s files=%d predicted_fused_total=%d approx_per_rank=%d\n' "$ROOT" "$nfiles" "$ngroups" "$per_rank"
+}
+
+run_count_only() {
+  local num_subfolders
+  num_subfolders=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')
+  if [[ "$num_subfolders" == "0" ]]; then
+    count_only_flat
+  else
+    count_only_subfolders
+  fi
 }
 
 process_all_subfolders_distributed() {
@@ -375,7 +511,16 @@ process_folder_distributed() {
 # ------------------ main flow ------------------
 # Build groups per subfolder and distribute globally across ranks
 
-num_subfolders=$(find $ROOT -mindepth 1 -maxdepth 1 -type d | wc -l)
+if is_true "$COUNT_ONLY"; then
+  if [[ "$RANK" != "0" ]]; then
+    echo "[rank $RANK] COUNT_ONLY enabled; rank 0 performs counting."
+    exit 0
+  fi
+  run_count_only
+  exit 0
+fi
+
+num_subfolders=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')
 if [[ $num_subfolders == 0 ]]; then
     process_folder_distributed
 else

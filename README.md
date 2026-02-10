@@ -22,12 +22,19 @@ download-huggingface-dataset.sh --dataset HuggingFaceFW/fineweb-edu --output fin
 
 ## Fusing Small Files
 Fusing small files reduces index-building overhead in Megatron-DeepSpeed and helps avoid rounding errors that can occur when processing very small files. By combining these files, you improve efficiency and stability during training or data preprocessing.
+
+To estimate how many fused files will be produced without writing outputs, use `--dry-run`.
+Single-process example:
+```bash
+preprocess/fuse_files/fuse_files_parallel.sh --input-dir data --dry-run
+```
+Once we figure out how many files it will generate, we can choose NPROCS that is close to that files. 
+
 ```bash
 export PPN=4
-export THREADS_PER_RANK=4
-ROOT=data
-OUT=data-fused
-mpiexec -np $((PBS_JOBSIZE*PPN)) --ppn $PPN --cpu-bind depth -d $THREADS_PER_RANK launcher.sh ./fuse_files_parallel.sh
+export THREADS_PER_RANK=16
+mpiexec -np $((PBS_JOBSIZE*PPN)) --ppn $PPN --cpu-bind depth -d $THREADS_PER_RANK launcher.sh \
+  fuse_files_parallel.sh --input-dir data --output-dir data-fused
 ```
 
 ## Tokenizing the Dataset
@@ -76,6 +83,25 @@ gen_file_list --input-json data-fused-tok.json
 ```
 You can specify the epochs for different corpora.
 
+## Testing the Dataset with `tests/`
+Use `tests/test_dataloader.py` to validate dataset construction and dataloader iteration with your generated file list.
+
+```bash
+mpiexec -n 1 python tests/test_dataloader.py \
+  --trace-dir ./trace \
+  --data-file-list olmo-fused-file-list.txt \
+  --global-batch-size 8 \
+  --train-iters 10 \
+  --seq-length 4096 \
+  --micro-batch-size 8 \
+  --num-workers 2 \
+  --dataloader-iter
+```
+
+Notes:
+- `--data-file-list` should point to the file produced by `gen_file_list`.
+- Increase `-n` for multi-rank testing when MPI is configured.
+- Set `--print-sample-info` if you also want per-sample corpus/prefix debug output.
 
 ## Known Issues
 * Incomplete dataset download

@@ -11,4 +11,5 @@ export PPN=16
 export PBS_JOBSIZE=$(cat $PBS_NODEFILE | uniq | wc -l)
 touch completed_0.txt
 cat completed_*.txt | sort -u > completed.txt
-mpiexec -np $((PBS_JOBSIZE*PPN)) --ppn $PPN --cpu-bind depth -d 4 launcher.sh ./fuse_files_parallel.sh
+mpiexec -np $((PBS_JOBSIZE*PPN)) --ppn $PPN --cpu-bind depth -d 4 launcher.sh \
+    fuse_files_parallel.sh --input-dir data --output-dir data_fused
