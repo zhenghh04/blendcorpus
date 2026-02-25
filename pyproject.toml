@@ -77,4 +77,6 @@ script-files = [
   "utils/barrier.sh",
   "utils/download-huggingface-dataset.sh",
   "preprocess/fuse_files/fuse_files_parallel.sh",
+  "blendcorpus/data/Makefile",
+  "blendcorpus/data/helpers.cpp",
 ]
