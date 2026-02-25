@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blendcorpus"
+version = "0.1"
+description = " BlendCorpus is a modular and scalable data preprocessing and loading framework for large language model (LLM) training. "
+
+readme = "README.md"
+requires-python = ">=3.10"
+
+license = { file = "LICENSE" }
+keywords = ["pytorch", "datasets", "data", "corpus"]
+authors = [
+  { name = "Huihuo Zheng", email="huihuo.zheng@anl.gov"},
+  { name = "Sam Foreman", email = "foremans@anl.gov" }
+]
+maintainers = [
+  { name = "Huihuo Zheng", email="huihuo.zheng@anl.gov"},
+  { name = "Sam Foreman", email = "foremans@anl.gov" }
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+]
+
+dependencies = [
+  "nltk",
+  "numpy",
+  "ezpz @ git+https://github.com/saforem2/ezpz.git",
+  "sentencepiece",
+  "mpi4py",
+  "zstandard",
+  "pybind11",
+]
+
+[project.optional-dependencies]
+deepspeed = ["deepspeed"]
+cuda = ["torch", "torchvision", "torchaudio"]
+xpu  = ["torch", "torchvision", "torchaudio", "pytorch-triton-xpu"]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-xpu"
+url = "https://download.pytorch.org/whl/xpu"
+explicit = true
+
+[project.scripts]
+preprocess_data = "preprocess.preprocess_data:main"
+tokenization = "preprocess.preprocess_data_parallel:main"
+get_meta_data = "preprocess.get_meta_data:main"
+test_dataloader = "tests.test_dataloader:main"
+merge_parquet = "preprocess.fuse_files.merge_parquet:main"
+gen_file_list = "preprocess.fuse_files.gen_file_list:main"
+
+# Equivalent of setup.py's find_packages(include=[...])
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "preprocess",
+  "preprocess.*",
+  "blendcorpus",
+  "blendcorpus.*",
+]
+
+# Equivalent of setup.py's scripts=[...]
+[tool.setuptools]
+script-files = [
+  "utils/launcher.sh",
+  "preprocess/tokenization/tokenization.sh",
+  "utils/barrier.sh",
+  "utils/download-huggingface-dataset.sh",
+  "preprocess/fuse_files/fuse_files_parallel.sh",
+]
