@@ -6,6 +6,9 @@ import hashlib
 import os
 import time
 
+import ezpz
+import torch
+
 import numpy as np
 
 from blendcorpus.data import helpers
@@ -18,19 +21,12 @@ from blendcorpus.data.dataset_utils import (
 )
 from blendcorpus.data.indexed_dataset import make_dataset as make_indexed_dataset
 import blendcorpus.parallel_state as mpu
-from blendcorpus.utils import print_rank_0
 
 from blendcorpus.utils import Profile  # PerfTrace, get_logger
-
-import ezpz
-import torch
 
 logger = ezpz.get_logger(__name__)
 
 dlp = Profile("DATASET")
-# log = get_logger(__name__, rank_zero_only=True)
-# logger = ezpz.get_logger(__name__)
-
 
 def build_gpt_datasets(config):
     files = []
@@ -39,6 +35,8 @@ def build_gpt_datasets(config):
     corpus_all = []
     with open(config.data_file_list, "r") as fin:
         for f in fin.readlines():
+            if f == '\n':
+                continue
             w, fname, c = f.split()
             weights.append(float(w))
             flist.append(fname)
@@ -47,6 +45,7 @@ def build_gpt_datasets(config):
             files.append(c)
             if c not in corpus_all:
                 corpus_all.append(c)
+
     weights = np.array(weights)
     weights = weights / np.sum(weights)
     train_samples = config.global_batch_size * config.train_iters
@@ -55,14 +54,14 @@ def build_gpt_datasets(config):
     test_samples = config.global_batch_size * config.eval_iters
 
     num_datasets = len(weights)
-    print_rank_0(f"Reading data from {config.data_file_list}")
-    print_rank_0(f"Number of datasets: {num_datasets}")
-    print_rank_0(f"Global batch size: {config.global_batch_size}")
-    print_rank_0(f"Training iterations: {config.train_iters}")
-    print_rank_0(f"Evaluation iterations: {config.eval_iters}")
-    print_rank_0(f"Total number of training samples: {train_samples}")
-    print_rank_0(f"Total number of evaluation samples: {eval_samples}")
-    print_rank_0(f"Total number of testing samples: {test_samples}")
+    logger.info(f"Reading data from {config.data_file_list}")
+    logger.info(f"Number of datasets: {num_datasets}")
+    logger.info(f"Global batch size: {config.global_batch_size}")
+    logger.info(f"Training iterations: {config.train_iters}")
+    logger.info(f"Evaluation iterations: {config.eval_iters}")
+    logger.info(f"Total number of training samples: {train_samples}")
+    logger.info(f"Total number of evaluation samples: {eval_samples}")
+    logger.info(f"Total number of testing samples: {test_samples}")
     train_valid_test_num_samples = [train_samples, eval_samples, test_samples]
     seed = config.seed
     data_impl = config.data_impl
