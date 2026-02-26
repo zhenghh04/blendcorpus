@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "blendcorpus"
@@ -10,7 +10,6 @@ description = " BlendCorpus is a modular and scalable data preprocessing and loa
 readme = "README.md"
 requires-python = ">=3.10"
 
-license = { file = "LICENSE" }
 keywords = ["pytorch", "datasets", "data", "corpus"]
 authors = [
   { name = "Huihuo Zheng", email="huihuo.zheng@anl.gov"},
@@ -59,22 +58,13 @@ test_dataloader = "tests.test_dataloader:main"
 merge_parquet = "preprocess.fuse_files.merge_parquet:main"
 gen_file_list = "preprocess.fuse_files.gen_file_list:main"
 
-# Equivalent of setup.py's find_packages(include=[...])
-[tool.setuptools.packages.find]
-where = ["."]
-include = [
-  "preprocess",
-  "preprocess.*",
+[tool.scikit-build]
+wheel.packages = [
   "blendcorpus",
-  "blendcorpus.*",
+  "preprocess",
 ]
+wheel.install-dir = "."
+cmake.build-type = "Release"
 
-# Equivalent of setup.py's scripts=[...]
-[tool.setuptools]
-script-files = [
-  "utils/launcher.sh",
-  "preprocess/tokenization/tokenization.sh",
-  "utils/barrier.sh",
-  "utils/download-huggingface-dataset.sh",
-  "preprocess/fuse_files/fuse_files_parallel.sh",
-]
+[tool.scikit-build.cmake.define]
+PYBIND11_FINDPYTHON = "ON"
